@@ -292,22 +292,29 @@ else:
         if task_type == "Clustering":
             st.info("🔵 **Clustering mode** – no target column needed. Select features and cluster count.")
             def_feat = [c['column_name'] for c in st.session_state.profile['columns']
-                        if c['semantic_type'] not in ['ID', 'Text']]
+                        if c['semantic_type'] not in ['ID', 'Text'] and st.session_state.df[c['column_name']].notnull().any()]
             feature_cols = st.multiselect(
                 "Feature Columns (for grouping)", all_cols,
                 default=st.session_state.feature_cols if st.session_state.feature_cols else def_feat
             )
             n_clusters = st.slider("Number of Clusters (K)", 2, 12, st.session_state.n_clusters)
             if st.button("💾 Save & Apply", key="save_c"):
-                st.session_state.task_type = "Clustering"
-                st.session_state.target_col = None
-                st.session_state.feature_cols = feature_cols
-                st.session_state.n_clusters = n_clusters
-                for k in ["ml_results", "cluster_results", "cluster_labels", "best_cluster_name",
-                           "validation_logs", "markdown_report", "pdf_report"]:
-                    st.session_state[k] = None
-                st.success(f"Clustering: K={n_clusters}, {len(feature_cols)} features.")
-                st.rerun()
+                valid_features = [col for col in feature_cols if st.session_state.df[col].notnull().any()]
+                if not valid_features:
+                    st.error("❌ Please select at least one feature column that contains valid (non-missing) data.")
+                else:
+                    ignored = list(set(feature_cols) - set(valid_features))
+                    st.session_state.task_type = "Clustering"
+                    st.session_state.target_col = None
+                    st.session_state.feature_cols = valid_features
+                    st.session_state.n_clusters = n_clusters
+                    for k in ["ml_results", "cluster_results", "cluster_labels", "best_cluster_name",
+                               "validation_logs", "markdown_report", "pdf_report"]:
+                        st.session_state[k] = None
+                    st.success(f"Clustering: K={n_clusters}, {len(valid_features)} features.")
+                    if ignored:
+                        st.warning(f"⚠️ Ignored {len(ignored)} completely empty feature(s): {ignored}")
+                    st.rerun()
         else:
             def_idx = 0
             if st.session_state.target_col is None and st.session_state.kpi_recs and st.session_state.kpi_recs['recommended_targets']:
@@ -317,20 +324,27 @@ else:
                 def_idx = all_cols.index(st.session_state.target_col)
             target_col = st.selectbox("Target Variable", all_cols, index=def_idx)
             def_feat = [c['column_name'] for c in st.session_state.profile['columns']
-                        if c['column_name'] != target_col and c['semantic_type'] not in ['ID', 'Text']]
+                        if c['column_name'] != target_col and c['semantic_type'] not in ['ID', 'Text'] and st.session_state.df[c['column_name']].notnull().any()]
             feature_cols = st.multiselect(
                 "Feature Columns (predictors)", all_cols,
                 default=st.session_state.feature_cols if st.session_state.feature_cols else def_feat
             )
             if st.button("💾 Save & Apply", key="save_s"):
-                st.session_state.target_col = target_col
-                st.session_state.task_type = task_type
-                st.session_state.feature_cols = feature_cols
-                for k in ["ml_results", "best_model_name", "best_model_info", "cluster_results",
-                           "cluster_labels", "validation_logs", "markdown_report", "pdf_report"]:
-                    st.session_state[k] = None
-                st.success(f"Predicting `{target_col}` ({task_type}) with {len(feature_cols)} features.")
-                st.rerun()
+                valid_features = [col for col in feature_cols if st.session_state.df[col].notnull().any()]
+                if not valid_features:
+                    st.error("❌ Please select at least one feature column that contains valid (non-missing) data.")
+                else:
+                    ignored = list(set(feature_cols) - set(valid_features))
+                    st.session_state.target_col = target_col
+                    st.session_state.task_type = task_type
+                    st.session_state.feature_cols = valid_features
+                    for k in ["ml_results", "best_model_name", "best_model_info", "cluster_results",
+                               "cluster_labels", "validation_logs", "markdown_report", "pdf_report"]:
+                        st.session_state[k] = None
+                    st.success(f"Predicting `{target_col}` ({task_type}) with {len(valid_features)} features.")
+                    if ignored:
+                        st.warning(f"⚠️ Ignored {len(ignored)} completely empty feature(s): {ignored}")
+                    st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
 
     # ── TAB 3: Viz ────────────────────────────────────────
