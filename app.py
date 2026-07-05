@@ -8,813 +8,643 @@ import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
 
-# Import local modules
 from src.profiler import load_dataset, get_sqlite_tables, profile_dataset, recommend_kpis_and_targets
-from src.ml_engine import preprocess_and_split, train_baselines, get_best_model, extract_feature_importances, generate_evaluation_plots
+from src.ml_engine import (
+    preprocess_and_split, train_baselines, get_best_model,
+    extract_feature_importances, generate_evaluation_plots,
+    train_clustering, get_cluster_profiles, generate_clustering_diagnostic_plots
+)
 from src.validator import run_validation_checks
 from src.reporter import generate_markdown_report, generate_reproducible_code, create_static_plots, generate_pdf_report
 
-# Page Config
-st.set_page_config(
-    page_title="Data2Business Agent",
-    page_icon="📈",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(page_title="Data2Business Agent", page_icon="📈", layout="wide", initial_sidebar_state="expanded")
 
-# Custom CSS for Premium Glassmorphism & Sleek Dark Mode Styling
 st.markdown("""
 <style>
-    /* Dark Theme backgrounds */
-    .stApp {
-        background: linear-gradient(135deg, #0F172A 0%, #1E1B4B 100%);
-        color: #F8FAFC;
-    }
-    
-    /* Sidebar styling */
+    .stApp { background: #F0F4FF; color: #1E293B; }
+    html,body,[class*="css"] { font-family:"Inter",-apple-system,BlinkMacSystemFont,sans-serif; }
     section[data-testid="stSidebar"] {
-        background-color: rgba(15, 23, 42, 0.8) !important;
-        border-right: 1px solid rgba(255, 255, 255, 0.05);
+        background: linear-gradient(180deg,#1E1B4B 0%,#312E81 100%) !important;
+        border-right: 1px solid #4338CA;
     }
-    
-    /* Cards and Glassmorphism */
-    div.element-container:has(div.card) {
-        margin-bottom: 1rem;
-    }
+    section[data-testid="stSidebar"] * { color:#E0E7FF !important; }
     .card {
-        background: rgba(30, 41, 59, 0.45);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
-        transition: transform 0.2s ease, border-color 0.2s ease;
+        background:#FFFFFF; border:1px solid #E2E8F0; border-radius:14px;
+        padding:1.5rem 1.75rem; margin-bottom:1.2rem;
+        box-shadow:0 2px 12px rgba(99,102,241,.08);
+        transition:box-shadow .2s ease,transform .2s ease;
     }
-    .card:hover {
-        border-color: rgba(139, 92, 246, 0.4);
-        transform: translateY(-2px);
-    }
-    
-    /* Headers styling */
-    h1, h2, h3, h4, h5, h6 {
-        color: #F8FAFC !important;
-        font-family: 'Inter', -apple-system, sans-serif;
-    }
-    
+    .card:hover { box-shadow:0 6px 24px rgba(99,102,241,.15); transform:translateY(-2px); }
+    h1,h2,h3,h4,h5,h6 { color:#1E293B !important; font-weight:700; }
     .main-title {
-        background: linear-gradient(90deg, #A78BFA 0%, #F472B6 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        font-weight: 800;
-        margin-bottom: 0.2rem;
+        background:linear-gradient(90deg,#4F46E5 0%,#7C3AED 50%,#DB2777 100%);
+        -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+        font-size:2.4rem; font-weight:800; line-height:1.2; margin-bottom:.2rem;
     }
-    
-    /* Status indicators */
-    .status-badge {
-        padding: 4px 8px;
-        border-radius: 4px;
-        font-size: 0.8rem;
-        font-weight: bold;
-    }
-    .status-critical {
-        background-color: rgba(239, 68, 68, 0.15);
-        color: #EF4444;
-        border: 1px solid rgba(239, 68, 68, 0.3);
-    }
-    .status-warning {
-        background-color: rgba(245, 158, 11, 0.15);
-        color: #F59E0B;
-        border: 1px solid rgba(245, 158, 11, 0.3);
-    }
-    .status-info {
-        background-color: rgba(16, 185, 129, 0.15);
-        color: #10B981;
-        border: 1px solid rgba(16, 185, 129, 0.3);
-    }
-    
-    /* Custom buttons */
+    .subtitle { color:#475569; font-size:1.05rem; margin-top:0; }
     .stButton>button {
-        background: linear-gradient(90deg, #6D28D9 0%, #4F46E5 100%) !important;
-        color: white !important;
-        border: none !important;
-        border-radius: 8px !important;
-        padding: 0.5rem 1.5rem !important;
-        font-weight: 600 !important;
-        box-shadow: 0 4px 12px rgba(109, 40, 217, 0.3) !important;
-        transition: all 0.2s ease !important;
+        background:linear-gradient(90deg,#4F46E5 0%,#7C3AED 100%) !important;
+        color:#FFFFFF !important; border:none !important; border-radius:8px !important;
+        padding:.55rem 1.6rem !important; font-weight:600 !important;
+        box-shadow:0 3px 10px rgba(79,70,229,.35) !important; transition:all .2s ease !important;
     }
-    .stButton>button:hover {
-        transform: scale(1.03);
-        box-shadow: 0 6px 18px rgba(109, 40, 217, 0.5) !important;
+    .stButton>button:hover { transform:scale(1.03); box-shadow:0 5px 18px rgba(79,70,229,.5) !important; }
+    .stDownloadButton>button {
+        background:linear-gradient(90deg,#059669 0%,#0284C7 100%) !important;
+        color:#FFFFFF !important; border:none !important; border-radius:8px !important;
+        padding:.55rem 1.4rem !important; font-weight:600 !important;
     }
+    div[data-testid="metric-container"] {
+        background:#FFFFFF; border:1px solid #E2E8F0; border-radius:12px;
+        padding:1rem 1.2rem; box-shadow:0 2px 8px rgba(0,0,0,.06);
+    }
+    div[data-testid="metric-container"] label {
+        color:#64748B !important; font-size:.82rem !important;
+        font-weight:600 !important; text-transform:uppercase; letter-spacing:.04em;
+    }
+    div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
+        color:#1E293B !important; font-size:1.6rem !important; font-weight:700 !important;
+    }
+    .status-badge { padding:3px 9px; border-radius:5px; font-size:.78rem; font-weight:700; }
+    .status-critical { background:#FEE2E2; color:#B91C1C; border:1px solid #FECACA; }
+    .status-warning  { background:#FEF3C7; color:#92400E; border:1px solid #FDE68A; }
+    .status-info     { background:#D1FAE5; color:#065F46; border:1px solid #A7F3D0; }
+    .log-card {
+        background:#FFFFFF; border-radius:10px; padding:1rem 1.2rem;
+        margin-bottom:.8rem; border:1px solid #E2E8F0; box-shadow:0 1px 4px rgba(0,0,0,.05);
+    }
+    .log-title { font-weight:700; font-size:1rem; color:#1E293B; }
+    .log-msg   { font-weight:600; font-size:.95rem; color:#334155; margin-top:.3rem; }
+    .log-det   { font-size:.88rem; color:#64748B; margin-bottom:0; }
+    button[data-baseweb="tab"] { font-weight:600 !important; color:#475569 !important; }
+    button[data-baseweb="tab"][aria-selected="true"] { color:#4F46E5 !important; border-bottom:3px solid #4F46E5 !important; }
+    .stDataFrame thead th { background:#EEF2FF !important; color:#3730A3 !important; font-weight:700 !important; }
+    details>summary { font-weight:600; color:#4F46E5; }
+    .stCodeBlock pre { background:#1E1B4B !important; color:#E0E7FF !important; border-radius:10px !important; }
+    .stAlert { border-radius:10px !important; }
 </style>
 """, unsafe_allow_html=True)
 
-# Initialize Session State
-if 'uploaded_file' not in st.session_state:
-    st.session_state.uploaded_file = None
-if 'df' not in st.session_state:
-    st.session_state.df = None
-if 'file_name' not in st.session_state:
-    st.session_state.file_name = ""
-if 'sqlite_tables' not in st.session_state:
-    st.session_state.sqlite_tables = []
-if 'selected_table' not in st.session_state:
-    st.session_state.selected_table = None
-if 'profile' not in st.session_state:
-    st.session_state.profile = None
-if 'kpi_recs' not in st.session_state:
-    st.session_state.kpi_recs = None
-if 'target_col' not in st.session_state:
-    st.session_state.target_col = None
-if 'feature_cols' not in st.session_state:
-    st.session_state.feature_cols = []
-if 'task_type' not in st.session_state:
-    st.session_state.task_type = "Classification"
-if 'ml_results' not in st.session_state:
-    st.session_state.ml_results = None
-if 'best_model_name' not in st.session_state:
-    st.session_state.best_model_name = None
-if 'best_model_info' not in st.session_state:
-    st.session_state.best_model_info = None
-if 'validation_logs' not in st.session_state:
-    st.session_state.validation_logs = None
-if 'markdown_report' not in st.session_state:
-    st.session_state.markdown_report = None
-if 'reproducible_code' not in st.session_state:
-    st.session_state.reproducible_code = None
-if 'pdf_report' not in st.session_state:
-    st.session_state.pdf_report = None
+_DEFAULTS = {
+    "uploaded_file": None, "df": None, "file_name": "",
+    "sqlite_tables": [], "selected_table": None,
+    "profile": None, "kpi_recs": None,
+    "target_col": None, "feature_cols": [],
+    "task_type": "Classification", "n_clusters": 3,
+    "ml_results": None, "best_model_name": None, "best_model_info": None,
+    "cluster_results": None, "best_cluster_name": None, "cluster_labels": None,
+    "validation_logs": None, "markdown_report": None,
+    "reproducible_code": None, "pdf_report": None,
+    "business_question": "Predict customer churn based on transaction history and account profiles",
+    "target_audience": "manager",
+}
+for _k, _v in _DEFAULTS.items():
+    if _k not in st.session_state:
+        st.session_state[_k] = _v
+
 
 def reset_state():
-    st.session_state.df = None
-    st.session_state.profile = None
-    st.session_state.kpi_recs = None
-    st.session_state.target_col = None
-    st.session_state.feature_cols = []
-    st.session_state.ml_results = None
-    st.session_state.best_model_name = None
-    st.session_state.best_model_info = None
-    st.session_state.validation_logs = None
-    st.session_state.markdown_report = None
-    st.session_state.reproducible_code = None
-    st.session_state.pdf_report = None
+    skip = {"uploaded_file", "file_name", "sqlite_tables", "selected_table"}
+    for k, v in _DEFAULTS.items():
+        if k not in skip:
+            st.session_state[k] = v
 
-# Sidebar Content
+
+# ── Sidebar ──────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("<h1 style='font-size: 1.8rem; margin-bottom: 0;'>🤖 Data2Business</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color: #94A3B8; font-size: 0.9rem;'>Business Analytics & ML Assistant</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-size:1.7rem;margin-bottom:0;color:#FFFFFF'>🤖 Data2Business</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color:#A5B4FC;font-size:.88rem;margin-top:0;'>Business Analytics & ML Assistant</p>", unsafe_allow_html=True)
     st.markdown("---")
-    
     st.markdown("### 📊 Workflow Progress")
-    steps = ["1. Upload & Profile", "2. Goal & Targets", "3. Visual Insights", "4. Baseline ML Model", "5. Trust Validation", "6. Report Export"]
-    
-    # Progress Calculation
-    curr_step = 0
-    if st.session_state.df is not None:
-        curr_step = 1
-    if st.session_state.target_col is not None:
-        curr_step = 2
-    if st.session_state.ml_results is not None:
-        curr_step = 5
-        
-    for i, step in enumerate(steps):
-        if i < curr_step:
-            st.markdown(f"🟢 **{step}**")
-        elif i == curr_step:
-            st.markdown(f"🔵 **{step}** (Active)")
-        else:
-            st.markdown(f"⚪ {step}")
-            
+    steps = ["1. Upload & Profile", "2. Goal & Targets", "3. Visual Insights",
+             "4. Baseline ML", "5. Trust Validation", "6. Report Export"]
+    curr = 0
+    if st.session_state.df is not None: curr = 1
+    if st.session_state.target_col is not None or st.session_state.task_type == "Clustering": curr = 2
+    if st.session_state.ml_results is not None or st.session_state.cluster_results is not None: curr = 5
+    for i, s in enumerate(steps):
+        if i < curr:   st.markdown(f"🟢 **{s}**")
+        elif i == curr: st.markdown(f"🔵 **{s}** *(active)*")
+        else:           st.markdown(f"⚪ {s}")
     st.markdown("---")
-    
-    # Sidebar stats
     if st.session_state.df is not None:
         st.markdown("### 📈 Active Dataset")
         st.markdown(f"- **File:** `{st.session_state.file_name}`")
         if st.session_state.selected_table:
             st.markdown(f"- **Table:** `{st.session_state.selected_table}`")
-        st.markdown(f"- **Rows:** {st.session_state.df.shape[0]}")
+        st.markdown(f"- **Rows:** {st.session_state.df.shape[0]:,}")
         st.markdown(f"- **Cols:** {st.session_state.df.shape[1]}")
-        
-        if st.button("Clear / Reset", key="clear_btn"):
-            reset_state()
-            st.session_state.uploaded_file = None
-            st.rerun()
+        tlbl = {"Classification": "🏷️ Classification", "Regression": "📉 Regression", "Clustering": "🔵 Clustering"}
+        st.markdown(f"- **Task:** {tlbl.get(st.session_state.task_type, st.session_state.task_type)}")
+        if st.button("🗑️ Clear / Reset", key="clear_btn"):
+            reset_state(); st.session_state.uploaded_file = None; st.rerun()
 
-# Main Title Header
+# ── Header ───────────────────────────────────────────────────
 st.markdown("<h1 class='main-title'>Data2Business Agent</h1>", unsafe_allow_html=True)
-st.markdown("<p style='font-size: 1.1rem; color: #94A3B8; margin-top:-5px;'>Transform raw data into trustworthy insights, KPIs, and baseline models.</p>", unsafe_allow_html=True)
+st.markdown("<p class='subtitle'>Transform raw data into trustworthy insights, KPIs, and baseline models.</p>", unsafe_allow_html=True)
 
-# ----------------- STEP 1: UPLOAD & PROFILE -----------------
+# ════════════════════════════════════════════════════════════
+# STEP 1 – UPLOAD
+# ════════════════════════════════════════════════════════════
 if st.session_state.df is None:
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.subheader("📁 Step 1: Upload your dataset")
-    st.markdown("Supported formats: CSV, Excel (`.xlsx`, `.xls`), JSON, Parquet, or SQLite databases.")
-    
-    uploaded_file = st.file_uploader("Choose a dataset file", type=['csv', 'xlsx', 'xls', 'json', 'parquet', 'db', 'sqlite', 'sqlite3'])
-    
+    st.markdown("Supported: **CSV · Excel · JSON · Parquet · SQLite**")
+    col_upload, col_sample = st.columns([3, 1])
+    with col_upload:
+        uploaded_file = st.file_uploader(
+            "Choose a dataset file",
+            type=["csv", "xlsx", "xls", "json", "parquet", "db", "sqlite", "sqlite3"]
+        )
+    with col_sample:
+        st.markdown("<div style='height:28px;'></div>", unsafe_allow_html=True)
+        if os.path.exists("iris.csv"):
+            if st.button("📂 Load Sample Iris", use_container_width=True):
+                with st.spinner("Loading sample dataset..."):
+                    st.session_state.df = pd.read_csv("iris.csv")
+                    st.session_state.file_name = "iris.csv"
+                    st.session_state.selected_table = None
+                    st.rerun()
     if uploaded_file is not None:
         st.session_state.uploaded_file = uploaded_file
         st.session_state.file_name = uploaded_file.name
-        
-        # Check if SQLite
         _, ext = os.path.splitext(uploaded_file.name.lower())
-        if ext in ['.db', '.sqlite', '.sqlite3']:
-            # SQLite requires a physical file path. We write uploaded buffer to a temporary file.
-            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp_file:
-                tmp_file.write(uploaded_file.getbuffer())
-                tmp_path = tmp_file.name
-            
+        if ext in [".db", ".sqlite", ".sqlite3"]:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=ext) as tmp:
+                tmp.write(uploaded_file.getbuffer()); tmp_path = tmp.name
             tables = get_sqlite_tables(tmp_path)
             st.session_state.sqlite_tables = tables
-            
-            selected_table = st.selectbox("Select table to analyze", tables)
+            sel_tbl = st.selectbox("Select table", tables)
             if st.button("Load Table"):
-                with st.spinner("Loading SQLite database table..."):
-                    df = load_dataset(tmp_path, file_type='sqlite', table_name=selected_table)
-                    st.session_state.df = df
-                    st.session_state.selected_table = selected_table
-                    # Cleanup tmp file
-                    try:
-                        os.unlink(tmp_path)
-                    except:
-                        pass
+                with st.spinner("Loading…"):
+                    st.session_state.df = load_dataset(tmp_path, file_type="sqlite", table_name=sel_tbl)
+                    st.session_state.selected_table = sel_tbl
+                    try: os.unlink(tmp_path)
+                    except: pass
                     st.rerun()
         else:
-            with st.spinner("Parsing dataset..."):
+            with st.spinner("Parsing…"):
                 try:
-                    df = load_dataset(uploaded_file)
-                    st.session_state.df = df
+                    st.session_state.df = load_dataset(uploaded_file)
                     st.session_state.selected_table = None
                     st.rerun()
                 except Exception as e:
-                    st.error(f"Error loading file: {str(e)}")
-                    
+                    st.error(f"Error loading file: {e}")
     st.markdown("</div>", unsafe_allow_html=True)
-    
-    # Showcase a friendly welcome guide if empty
     st.markdown("""
-    <div style='margin-top: 2rem; border-left: 4px solid #8B5CF6; padding-left: 1rem;'>
-        <h4>💡 How it works</h4>
-        <p>1. <b>Upload Data:</b> Profile and examine column types, missingness, and general health metrics.<br>
-        2. <b>Select Target Outcome:</b> Specify what you want to predict (regression or classification) and key features.<br>
-        3. <b>Explore Visualizations:</b> View automatically generated charts mapping trends and class distributions.<br>
-        4. <b>Train Baseline ML:</b> Train three different models in parallel, compare scores, and extract driver importance.<br>
-        5. <b>Validate & Trust:</b> Run quality checks for leakage, class imbalance, and multicollinearity.<br>
-        6. <b>Generate Report:</b> Download executive, manager, or technical-tailored reports, charts, and clean executable code.</p>
-    </div>
-    """, unsafe_allow_html=True)
+    <div style='margin-top:2rem;background:#FFFFFF;border-radius:14px;padding:1.5rem;
+                border:1px solid #E2E8F0;box-shadow:0 2px 12px rgba(99,102,241,.08);'>
+        <h4 style='color:#4F46E5;margin-top:0;'>💡 How it works</h4>
+        <ol style='color:#475569;line-height:2;'>
+            <li><b>Upload Data</b> – Profile columns, missing values, data health.</li>
+            <li><b>Set Goal</b> – Supervised prediction <i>or</i> unsupervised clustering.</li>
+            <li><b>Explore Charts</b> – Auto-generated distributions and correlations.</li>
+            <li><b>Train Models</b> – Compare three baselines; pick the best performer.</li>
+            <li><b>Validate</b> – Check leakage, imbalance, and cluster quality.</li>
+            <li><b>Export</b> – PDF/Markdown report, reproducible code, ZIP bundle.</li>
+        </ol>
+    </div>""", unsafe_allow_html=True)
 
-# ----------------- MAIN FLOW (WHEN DATA IS LOADED) -----------------
+# ════════════════════════════════════════════════════════════
+# MAIN FLOW
+# ════════════════════════════════════════════════════════════
 else:
-    # Always profile on first load
     if st.session_state.profile is None:
-        with st.spinner("Profiling dataset..."):
+        with st.spinner("Profiling dataset…"):
             st.session_state.profile = profile_dataset(st.session_state.df)
             st.session_state.kpi_recs = recommend_kpis_and_targets(st.session_state.profile)
 
-    # Show profiling dashboard tabs
     tab_profile, tab_goal, tab_viz, tab_ml, tab_validation, tab_export = st.tabs([
-        "📊 Data Profile", "🎯 Business Goal & Target", "📈 Visual Insights", "🤖 Baseline ML", "🛡️ Trust Validation", "📄 Report Export"
+        "📊 Data Profile", "🎯 Business Goal & Target", "📈 Visual Insights",
+        "🤖 Baseline ML / Clustering", "🛡️ Trust Validation", "📄 Report Export"
     ])
-    
-    # ----------------- TAB: DATA PROFILE -----------------
+
+    # ── TAB 1: Profile ────────────────────────────────────
     with tab_profile:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.subheader("Data profiling overview")
-        
-        # Summary KPI cards
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Row Count", st.session_state.profile['num_rows'])
-        col2.metric("Column Count", st.session_state.profile['num_cols'])
-        col3.metric("Duplicate Rows", st.session_state.profile['num_duplicates'])
-        
-        # Calculate overall completeness
-        total_cells = st.session_state.df.size
-        null_cells = st.session_state.df.isnull().sum().sum()
-        completeness = ((total_cells - null_cells) / total_cells) * 100 if total_cells > 0 else 0
-        col4.metric("Data Completeness", f"{completeness:.2f}%")
+        st.subheader("Dataset Overview")
+        c1, c2, c3, c4 = st.columns(4)
+        c1.metric("Rows", f"{st.session_state.profile['num_rows']:,}")
+        c2.metric("Columns", st.session_state.profile['num_cols'])
+        c3.metric("Duplicate Rows", st.session_state.profile['num_duplicates'])
+        total_c = st.session_state.df.size
+        null_c  = st.session_state.df.isnull().sum().sum()
+        c4.metric("Completeness", f"{((total_c - null_c) / total_c * 100) if total_c > 0 else 0:.1f}%")
         st.markdown("</div>", unsafe_allow_html=True)
-        
         st.subheader("Dataset Preview")
         st.dataframe(st.session_state.df.head(10), use_container_width=True)
-        
         st.subheader("Column Profiles")
-        
-        # Table of columns
         col_list = []
-        for col_info in st.session_state.profile['columns']:
-            stats_str = ""
-            if col_info['semantic_type'] == 'Numeric' and 'stats' in col_info:
-                stats_str = f"Mean: {col_info['stats']['mean']:.2f} | Range: [{col_info['stats']['min']:.2f}, {col_info['stats']['max']:.2f}]"
-            elif col_info['semantic_type'] == 'Categorical' and 'stats' in col_info and 'top_values' in col_info['stats']:
-                top_v = col_info['stats']['top_values']
-                if top_v:
-                    stats_str = f"Top: '{top_v[0]['value']}' ({top_v[0]['count']} rows)"
-            elif col_info['semantic_type'] == 'Datetime' and 'stats' in col_info and 'min' in col_info['stats']:
-                stats_str = f"Range: {col_info['stats']['min']} to {col_info['stats']['max']}"
-                
+        for ci in st.session_state.profile['columns']:
+            ss = ""
+            if ci['semantic_type'] == 'Numeric' and 'stats' in ci:
+                s = ci['stats']
+                ss = f"Mean:{s['mean']:.2f} | [{s['min']:.2f},{s['max']:.2f}]"
+            elif ci['semantic_type'] == 'Categorical' and 'stats' in ci and 'top_values' in ci['stats']:
+                tv = ci['stats']['top_values']
+                ss = f"Top:'{tv[0]['value']}' ({tv[0]['count']} rows)" if tv else ""
+            elif ci['semantic_type'] == 'Datetime' and 'stats' in ci and 'min' in ci['stats']:
+                ss = f"Range:{ci['stats']['min']} → {ci['stats']['max']}"
             col_list.append({
-                "Column Name": col_info['column_name'],
-                "Data Type": col_info['data_type'],
-                "Semantic Type": col_info['semantic_type'],
-                "Missing %": f"{col_info['missing_percentage']}%",
-                "Unique Count": col_info['unique_count'],
-                "Summary Statistics": stats_str
+                "Column": ci['column_name'], "Type": ci['data_type'],
+                "Semantic": ci['semantic_type'], "Missing%": f"{ci['missing_percentage']}%",
+                "Unique": ci['unique_count'], "Stats": ss
             })
-            
         st.table(pd.DataFrame(col_list))
-        
-    # ----------------- TAB: GOAL & TARGETS -----------------
+
+    # ── TAB 2: Goal ───────────────────────────────────────
     with tab_goal:
         st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.subheader("Define business context & variables")
-        
-        business_question = st.text_input(
-            "What business or analytics question are you trying to answer?",
-            value="Predict customer churn based on transaction history and account profiles"
-        )
-        
-        target_audience = st.selectbox(
-            "Who is the target audience for the final report?",
-            options=["technical", "manager", "executive"],
-            index=1,
-            format_func=lambda x: x.capitalize()
-        )
+        st.subheader("Define Business Context")
+        bq = st.text_input("Business question", value=st.session_state.business_question)
+        st.session_state.business_question = bq
+        ta_opts = ["technical", "manager", "executive"]
+        ta = st.selectbox("Target audience", ta_opts,
+                          index=ta_opts.index(st.session_state.target_audience),
+                          format_func=str.capitalize)
+        st.session_state.target_audience = ta
         st.markdown("</div>", unsafe_allow_html=True)
-        
-        # Display recommendations
+
         if st.session_state.kpi_recs:
-            st.subheader("💡 Recommended Target Outcomes")
-            st.markdown("The agent has analyzed columns based on variance, cardinality, and naming patterns:")
-            
             recs = st.session_state.kpi_recs['recommended_targets']
             if recs:
-                rec_df = pd.DataFrame([
-                    {
-                        "Column": r['column'],
-                        "Semantic Type": r['type'],
-                        "Suggested Task": r['task_suggestion'],
-                        "Confidence Score": "High ⭐⭐⭐" if r['score'] >= 5 else "Medium ⭐⭐"
-                    } for r in recs
-                ])
-                st.table(rec_df)
-            else:
-                st.info("No clear target variables could be recommended automatically. Please select manually below.")
-                
+                st.subheader("💡 Recommended Targets")
+                st.table(pd.DataFrame([{
+                    "Column": r['column'], "Type": r['type'],
+                    "Task": r['task_suggestion'],
+                    "Confidence": "⭐⭐⭐ High" if r['score'] >= 5 else "⭐⭐ Medium"
+                } for r in recs]))
+
         st.markdown("<div class='card'>", unsafe_allow_html=True)
-        st.subheader("Configure Modeling Pipeline")
-        
-        # Target Selector
+        st.subheader("Configure Pipeline")
+
+        task_type = st.radio(
+            "Task Type",
+            ["Classification", "Regression", "Clustering"],
+            index=["Classification", "Regression", "Clustering"].index(st.session_state.task_type),
+            help="**Classification** – predict a category.  **Regression** – predict a number.  "
+                 "**Clustering** – discover natural groups (no target needed).",
+            horizontal=True
+        )
+
         all_cols = [c['column_name'] for c in st.session_state.profile['columns']]
-        
-        # Auto-select target from recommendations if none selected yet
-        default_target_idx = 0
-        if st.session_state.target_col is None and st.session_state.kpi_recs['recommended_targets']:
-            rec_target = st.session_state.kpi_recs['recommended_targets'][0]['column']
-            if rec_target in all_cols:
-                default_target_idx = all_cols.index(rec_target)
-        elif st.session_state.target_col in all_cols:
-            default_target_idx = all_cols.index(st.session_state.target_col)
-            
-        target_col = st.selectbox("Select Target Variable (Outcome to predict)", all_cols, index=default_target_idx)
-        
-        # Update task type based on target semantic type
-        target_sem_type = next((c['semantic_type'] for c in st.session_state.profile['columns'] if c['column_name'] == target_col), "Categorical")
-        suggested_task = "Classification" if target_sem_type == "Categorical" else "Regression"
-        
-        task_type = st.radio("Analytics Task Type", ["Classification", "Regression"], 
-                             index=0 if suggested_task == "Classification" else 1,
-                             help="Classification for category labels, Regression for numerical quantities.")
-        
-        # Feature Selector (Default to all cols except target and ID/Text cols)
-        default_features = []
-        for col_info in st.session_state.profile['columns']:
-            name = col_info['column_name']
-            sem = col_info['semantic_type']
-            if name != target_col and sem not in ['ID', 'Text']:
-                default_features.append(name)
-                
-        feature_cols = st.multiselect("Select Feature Columns (Predictors)", all_cols, default=default_features)
-        
-        # Save button to update state
-        if st.button("Save Settings & Apply"):
-            st.session_state.target_col = target_col
-            st.session_state.task_type = task_type
-            st.session_state.feature_cols = feature_cols
-            
-            # Reset down-stream metrics to force recalculation
-            st.session_state.ml_results = None
-            st.session_state.best_model_name = None
-            st.session_state.best_model_info = None
-            st.session_state.validation_logs = None
-            st.session_state.markdown_report = None
-            st.session_state.pdf_report = None
-            
-            st.success(f"Configured: predicting `{target_col}` ({task_type}) using {len(feature_cols)} features.")
-            st.rerun()
-            
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-    # ----------------- TAB: VISUAL INSIGHTS -----------------
-    with tab_viz:
-        if st.session_state.target_col is None:
-            st.warning("Please configure and save your target variable in the 'Business Goal & Target' tab first.")
-        else:
-            st.subheader(f"📈 Visual Insights: Analyzing predictors for outcome `{st.session_state.target_col}`")
-            
-            # Row 1: Target distribution
-            st.markdown("<div class='card'>", unsafe_allow_html=True)
-            st.subheader(f"1. Target Distribution: `{st.session_state.target_col}`")
-            if st.session_state.task_type == 'Classification':
-                fig_target = px.histogram(
-                    st.session_state.df, 
-                    x=st.session_state.target_col, 
-                    color=st.session_state.target_col,
-                    color_discrete_sequence=px.colors.qualitative.Plotly
-                )
-            else:
-                fig_target = px.histogram(
-                    st.session_state.df, 
-                    x=st.session_state.target_col, 
-                    kde=True,
-                    color_discrete_sequence=['#8B5CF6']
-                )
-            fig_target.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)',
-                plot_bgcolor='rgba(0,0,0,0)',
-                font=dict(color="#E2E8F0")
+
+        if task_type == "Clustering":
+            st.info("🔵 **Clustering mode** – no target column needed. Select features and cluster count.")
+            def_feat = [c['column_name'] for c in st.session_state.profile['columns']
+                        if c['semantic_type'] not in ['ID', 'Text']]
+            feature_cols = st.multiselect(
+                "Feature Columns (for grouping)", all_cols,
+                default=st.session_state.feature_cols if st.session_state.feature_cols else def_feat
             )
-            st.plotly_chart(fig_target, use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-            
-            # Row 2: Correlation Heatmap (for Numeric Columns)
-            num_cols = [c['column_name'] for c in st.session_state.profile['columns'] if c['semantic_type'] == 'Numeric']
-            if len(num_cols) > 1:
-                st.markdown("<div class='card'>", unsafe_allow_html=True)
-                st.subheader("2. Correlation Heatmap (Numeric Columns)")
-                corr_matrix = st.session_state.df[num_cols].corr()
-                fig_corr = px.imshow(
-                    corr_matrix, 
-                    color_continuous_scale='RdBu_r', 
-                    zmin=-1, zmax=1,
-                    text_auto=".2f"
-                )
-                fig_corr.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color="#E2E8F0")
-                )
-                st.plotly_chart(fig_corr, use_container_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-                
-            # Row 3: Feature vs Target relationships
-            st.markdown("<div class='card'>", unsafe_allow_html=True)
-            st.subheader("3. Feature Relationships vs Target")
-            
-            # Pick a numeric feature to plot vs target
-            numeric_features = [f for f in st.session_state.feature_cols if f in num_cols]
-            if numeric_features:
-                selected_feat = st.selectbox("Select feature to plot vs Target", numeric_features)
-                
-                if st.session_state.task_type == 'Classification':
-                    # Box plot
-                    fig_rel = px.box(
-                        st.session_state.df, 
-                        x=st.session_state.target_col, 
-                        y=selected_feat, 
-                        color=st.session_state.target_col
-                    )
-                else:
-                    # Scatter plot
-                    fig_rel = px.scatter(
-                        st.session_state.df, 
-                        x=selected_feat, 
-                        y=st.session_state.target_col, 
-                        opacity=0.6,
-                        trendline="ols" if len(st.session_state.df) < 5000 else None
-                    )
-                    
-                fig_rel.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)',
-                    plot_bgcolor='rgba(0,0,0,0)',
-                    font=dict(color="#E2E8F0")
-                )
-                st.plotly_chart(fig_rel, use_container_width=True)
-            else:
-                st.info("No numeric features found to plot relationship charts.")
-            st.markdown("</div>", unsafe_allow_html=True)
-            
-    # ----------------- TAB: BASELINE ML -----------------
-    with tab_ml:
-        if st.session_state.target_col is None:
-            st.warning("Please configure your target variable in the 'Business Goal & Target' tab first.")
+            n_clusters = st.slider("Number of Clusters (K)", 2, 12, st.session_state.n_clusters)
+            if st.button("💾 Save & Apply", key="save_c"):
+                st.session_state.task_type = "Clustering"
+                st.session_state.target_col = None
+                st.session_state.feature_cols = feature_cols
+                st.session_state.n_clusters = n_clusters
+                for k in ["ml_results", "cluster_results", "cluster_labels", "best_cluster_name",
+                           "validation_logs", "markdown_report", "pdf_report"]:
+                    st.session_state[k] = None
+                st.success(f"Clustering: K={n_clusters}, {len(feature_cols)} features.")
+                st.rerun()
         else:
-            st.subheader("🤖 Run Baseline Machine Learning Pipeline")
-            st.markdown("The agent will automatically partition data (80/20 train/test), impute missing values, scale variables, encode categoricals, and evaluate three models.")
-            
-            if st.button("🚀 Train & Evaluate Models"):
-                with st.spinner("Executing pipeline, preprocessing data, training classifiers/regressors..."):
+            def_idx = 0
+            if st.session_state.target_col is None and st.session_state.kpi_recs and st.session_state.kpi_recs['recommended_targets']:
+                rc = st.session_state.kpi_recs['recommended_targets'][0]['column']
+                if rc in all_cols: def_idx = all_cols.index(rc)
+            elif st.session_state.target_col in all_cols:
+                def_idx = all_cols.index(st.session_state.target_col)
+            target_col = st.selectbox("Target Variable", all_cols, index=def_idx)
+            def_feat = [c['column_name'] for c in st.session_state.profile['columns']
+                        if c['column_name'] != target_col and c['semantic_type'] not in ['ID', 'Text']]
+            feature_cols = st.multiselect(
+                "Feature Columns (predictors)", all_cols,
+                default=st.session_state.feature_cols if st.session_state.feature_cols else def_feat
+            )
+            if st.button("💾 Save & Apply", key="save_s"):
+                st.session_state.target_col = target_col
+                st.session_state.task_type = task_type
+                st.session_state.feature_cols = feature_cols
+                for k in ["ml_results", "best_model_name", "best_model_info", "cluster_results",
+                           "cluster_labels", "validation_logs", "markdown_report", "pdf_report"]:
+                    st.session_state[k] = None
+                st.success(f"Predicting `{target_col}` ({task_type}) with {len(feature_cols)} features.")
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── TAB 3: Viz ────────────────────────────────────────
+    with tab_viz:
+        ready = (
+            (st.session_state.task_type == "Clustering" and bool(st.session_state.feature_cols)) or
+            (st.session_state.task_type != "Clustering" and st.session_state.target_col is not None)
+        )
+        if not ready:
+            st.warning("Configure settings in the **Business Goal & Target** tab first.")
+        else:
+            num_cols_all = [c['column_name'] for c in st.session_state.profile['columns'] if c['semantic_type'] == 'Numeric']
+
+            if st.session_state.task_type == "Clustering":
+                st.subheader("📈 Feature Distributions for Clustering")
+                st.markdown("<div class='card'>", unsafe_allow_html=True)
+                st.subheader("1. Feature Distribution")
+                num_f = [f for f in st.session_state.feature_cols if f in num_cols_all]
+                if num_f:
+                    sf = st.selectbox("Feature", num_f, key="cvf")
+                    fig = px.histogram(st.session_state.df, x=sf, nbins=40,
+                                       title=f"Distribution of {sf}", color_discrete_sequence=["#6366F1"])
+                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"))
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("No numeric features selected.")
+                st.markdown("</div>", unsafe_allow_html=True)
+                if len(num_f) >= 2:
+                    st.markdown("<div class='card'>", unsafe_allow_html=True)
+                    st.subheader("2. Correlation Heatmap")
+                    corr = st.session_state.df[num_f].corr()
+                    fig2 = px.imshow(corr, color_continuous_scale="RdBu_r", zmin=-1, zmax=1, text_auto=".2f")
+                    fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"))
+                    st.plotly_chart(fig2, use_container_width=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                if st.session_state.cluster_results is not None:
+                    st.markdown("<div class='card'>", unsafe_allow_html=True)
+                    st.subheader("3. Cluster Projection (PCA 2D)")
+                    br = st.session_state.cluster_results[st.session_state.best_cluster_name]
+                    dp = generate_clustering_diagnostic_plots(
+                        st.session_state.best_cluster_name, br['X_preprocessed'],
+                        st.session_state.cluster_labels, st.session_state.n_clusters)
+                    for _, pfig in dp.items():
+                        st.plotly_chart(pfig, use_container_width=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+            else:
+                tc = st.session_state.target_col
+                st.subheader(f"📈 Visual Insights: Predicting `{tc}`")
+                st.markdown("<div class='card'>", unsafe_allow_html=True)
+                st.subheader(f"1. Target Distribution: `{tc}`")
+                if st.session_state.task_type == "Classification":
+                    fig = px.histogram(st.session_state.df, x=tc, color=tc,
+                                       color_discrete_sequence=px.colors.qualitative.Plotly)
+                else:
+                    fig = px.histogram(st.session_state.df, x=tc, nbins=40, color_discrete_sequence=["#8B5CF6"])
+                fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"))
+                st.plotly_chart(fig, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+                if len(num_cols_all) > 1:
+                    st.markdown("<div class='card'>", unsafe_allow_html=True)
+                    st.subheader("2. Correlation Heatmap")
+                    corr = st.session_state.df[num_cols_all].corr()
+                    fig2 = px.imshow(corr, color_continuous_scale="RdBu_r", zmin=-1, zmax=1, text_auto=".2f")
+                    fig2.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"))
+                    st.plotly_chart(fig2, use_container_width=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown("<div class='card'>", unsafe_allow_html=True)
+                st.subheader("3. Feature vs Target")
+                nf = [f for f in st.session_state.feature_cols if f in num_cols_all]
+                if nf:
+                    sf2 = st.selectbox("Feature", nf, key="svf")
+                    if st.session_state.task_type == "Classification":
+                        fig3 = px.box(st.session_state.df, x=tc, y=sf2, color=tc)
+                    else:
+                        fig3 = px.scatter(st.session_state.df, x=sf2, y=tc, opacity=.6,
+                                          trendline="ols" if len(st.session_state.df) < 5000 else None,
+                                          color_discrete_sequence=["#4F46E5"])
+                    fig3.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"))
+                    st.plotly_chart(fig3, use_container_width=True)
+                else:
+                    st.info("No numeric features for relationship charts.")
+                st.markdown("</div>", unsafe_allow_html=True)
+
+    # ── TAB 4: ML / Clustering ────────────────────────────
+    with tab_ml:
+        conf = (
+            (st.session_state.task_type == "Clustering" and bool(st.session_state.feature_cols)) or
+            (st.session_state.task_type != "Clustering" and st.session_state.target_col is not None)
+        )
+        if not conf:
+            st.warning("Configure settings in the **Business Goal & Target** tab first.")
+        elif st.session_state.task_type == "Clustering":
+            st.subheader("🔵 Unsupervised Clustering Pipeline")
+            st.markdown(f"Fitting **K-Means** & **Gaussian Mixture Model** with K={st.session_state.n_clusters}.")
+            if st.button("🚀 Run Clustering"):
+                with st.spinner("Clustering…"):
                     try:
-                        # 1. Preprocess & Split
-                        X_train, X_test, y_train, y_test, preprocessor = preprocess_and_split(
-                            st.session_state.df, 
-                            st.session_state.target_col, 
-                            st.session_state.feature_cols, 
-                            st.session_state.task_type
-                        )
-                        
-                        # 2. Train baseline models
-                        results = train_baselines(
-                            X_train, y_train, X_test, y_test, 
-                            preprocessor, st.session_state.task_type
-                        )
-                        
-                        # 3. Select best model
-                        best_name, best_info = get_best_model(results, st.session_state.task_type)
-                        
-                        # Save to session state
-                        st.session_state.ml_results = results
-                        st.session_state.best_model_name = best_name
-                        st.session_state.best_model_info = best_info
-                        
-                        # Extract train score to pass to validator (for overfitting checks)
-                        train_pred = best_info['pipeline'].predict(X_train)
-                        metric_name = 'F1-Score' if st.session_state.task_type == 'Classification' else 'R²'
-                        if st.session_state.task_type == 'Classification':
-                            from sklearn.metrics import f1_score as f1_eval
-                            is_binary = len(np.unique(y_train)) == 2
-                            avg = 'binary' if is_binary else 'weighted'
-                            train_score = f1_eval(y_train, train_pred, average=avg, zero_division=0)
-                            test_score = best_info['metrics']['F1-Score']
-                        else:
-                            from sklearn.metrics import r2_score as r2_eval
-                            train_score = r2_eval(y_train, train_pred)
-                            test_score = best_info['metrics']['R²']
-                            
-                        # 4. Run automated validation checks
+                        cr = train_clustering(
+                            st.session_state.df, st.session_state.feature_cols,
+                            n_clusters=st.session_state.n_clusters)
+                        bcn = max(cr, key=lambda m: cr[m]['metrics'].get("Silhouette Score", -1))
+                        bl  = cr[bcn]['labels']
+                        st.session_state.cluster_results   = cr
+                        st.session_state.best_cluster_name = bcn
+                        st.session_state.cluster_labels    = bl
                         st.session_state.validation_logs = run_validation_checks(
-                            st.session_state.df, 
-                            st.session_state.target_col, 
-                            st.session_state.feature_cols, 
-                            st.session_state.task_type,
-                            train_score, 
-                            test_score,
-                            best_info['metrics']
-                        )
-                        
-                        # 5. Generate Markdown report content
+                            st.session_state.df, None, st.session_state.feature_cols,
+                            "Clustering", None, None, cr[bcn]['metrics'])
                         st.session_state.markdown_report = generate_markdown_report(
-                            st.session_state.profile, 
-                            st.session_state.target_col, 
-                            st.session_state.feature_cols, 
-                            st.session_state.task_type, 
-                            best_name, 
-                            best_info['metrics'], 
-                            st.session_state.validation_logs, 
-                            business_question, 
-                            target_audience
-                        )
-                        
-                        # 6. Generate Reproducible script
+                            st.session_state.profile, None, st.session_state.feature_cols,
+                            "Clustering", bcn, cr[bcn]['metrics'],
+                            st.session_state.validation_logs,
+                            st.session_state.business_question, st.session_state.target_audience)
                         st.session_state.reproducible_code = generate_reproducible_code(
-                            st.session_state.file_name, 
-                            st.session_state.target_col, 
-                            st.session_state.feature_cols, 
-                            st.session_state.task_type, 
-                            best_name
-                        )
-                        
-                        # 7. Generate PDF report using static matplotlib plots
-                        with tempfile.TemporaryDirectory() as tmp_dir:
-                            static_charts = create_static_plots(
-                                st.session_state.df, 
-                                st.session_state.target_col, 
-                                st.session_state.feature_cols, 
-                                st.session_state.task_type, 
-                                y_test, 
-                                best_info['y_pred'], 
-                                tmp_dir
-                            )
-                            
-                            pdf_buf_path = os.path.join(tmp_dir, "report.pdf")
+                            st.session_state.file_name, None, st.session_state.feature_cols,
+                            "Clustering", bcn, n_clusters=st.session_state.n_clusters)
+                        with tempfile.TemporaryDirectory() as td:
+                            sc = create_static_plots(
+                                st.session_state.df, None, st.session_state.feature_cols,
+                                "Clustering", None, None, td, cluster_labels=bl)
+                            pp = os.path.join(td, "report.pdf")
                             generate_pdf_report(
-                                st.session_state.profile,
-                                st.session_state.target_col,
-                                st.session_state.feature_cols,
-                                st.session_state.task_type,
-                                best_name,
-                                best_info['metrics'],
+                                st.session_state.profile, None, st.session_state.feature_cols,
+                                "Clustering", bcn, cr[bcn]['metrics'],
                                 st.session_state.validation_logs,
-                                business_question,
-                                target_audience,
-                                static_charts,
-                                pdf_buf_path
-                            )
-                            
-                            # Read PDF into bytes for downloadable buffer
-                            with open(pdf_buf_path, "rb") as f:
+                                st.session_state.business_question, st.session_state.target_audience,
+                                sc, pp)
+                            with open(pp, "rb") as f:
                                 st.session_state.pdf_report = f.read()
-                                
-                        st.success("Baseline models trained successfully!")
+                        st.success("Clustering complete!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Error executing ML Pipeline: {str(e)}")
-                        import traceback
-                        st.code(traceback.format_exc())
-                        
-            # Show results if available
+                        st.error(f"Error: {e}")
+                        import traceback; st.code(traceback.format_exc())
+
+            if st.session_state.cluster_results is not None:
+                st.markdown("<div class='card'>", unsafe_allow_html=True)
+                st.subheader("🏆 Model Comparison")
+                rows = [{"Model": m, **{k: f"{v:.4f}" for k, v in r['metrics'].items()}}
+                        for m, r in st.session_state.cluster_results.items()]
+                st.table(pd.DataFrame(rows))
+                st.markdown(f"⭐ Best (Silhouette): **{st.session_state.best_cluster_name}**")
+                st.markdown("</div>", unsafe_allow_html=True)
+                st.markdown("<div class='card'>", unsafe_allow_html=True)
+                st.subheader("📋 Cluster Profiles")
+                st.dataframe(get_cluster_profiles(
+                    st.session_state.df, st.session_state.feature_cols,
+                    st.session_state.cluster_labels), use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+                br2 = st.session_state.cluster_results[st.session_state.best_cluster_name]
+                dp2 = generate_clustering_diagnostic_plots(
+                    st.session_state.best_cluster_name, br2['X_preprocessed'],
+                    st.session_state.cluster_labels, st.session_state.n_clusters)
+                cl2, cr2 = st.columns(2)
+                for idx, (pn, pf) in enumerate(dp2.items()):
+                    with (cl2 if idx % 2 == 0 else cr2):
+                        st.markdown("<div class='card'>", unsafe_allow_html=True)
+                        st.plotly_chart(pf, use_container_width=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.subheader("🤖 Baseline Machine Learning Pipeline")
+            st.markdown("80/20 split · imputation · scaling · encoding · three models compared.")
+            if st.button("🚀 Train & Evaluate Models"):
+                with st.spinner("Training…"):
+                    try:
+                        X_tr, X_te, y_tr, y_te, pre = preprocess_and_split(
+                            st.session_state.df, st.session_state.target_col,
+                            st.session_state.feature_cols, st.session_state.task_type)
+                        res = train_baselines(X_tr, y_tr, X_te, y_te, pre, st.session_state.task_type)
+                        bn, bi = get_best_model(res, st.session_state.task_type)
+                        st.session_state.ml_results      = res
+                        st.session_state.best_model_name = bn
+                        st.session_state.best_model_info = bi
+                        tp = bi['pipeline'].predict(X_tr)
+                        if st.session_state.task_type == "Classification":
+                            from sklearn.metrics import f1_score as f1e
+                            avg = "binary" if len(np.unique(y_tr)) == 2 else "weighted"
+                            trs = f1e(y_tr, tp, average=avg, zero_division=0)
+                            tes = bi['metrics']['F1-Score']
+                        else:
+                            from sklearn.metrics import r2_score as r2e
+                            trs = r2e(y_tr, tp); tes = bi['metrics']['R²']
+                        st.session_state.validation_logs = run_validation_checks(
+                            st.session_state.df, st.session_state.target_col,
+                            st.session_state.feature_cols, st.session_state.task_type,
+                            trs, tes, bi['metrics'])
+                        st.session_state.markdown_report = generate_markdown_report(
+                            st.session_state.profile, st.session_state.target_col,
+                            st.session_state.feature_cols, st.session_state.task_type,
+                            bn, bi['metrics'], st.session_state.validation_logs,
+                            st.session_state.business_question, st.session_state.target_audience)
+                        st.session_state.reproducible_code = generate_reproducible_code(
+                            st.session_state.file_name, st.session_state.target_col,
+                            st.session_state.feature_cols, st.session_state.task_type, bn)
+                        with tempfile.TemporaryDirectory() as td:
+                            sc = create_static_plots(
+                                st.session_state.df, st.session_state.target_col,
+                                st.session_state.feature_cols, st.session_state.task_type,
+                                y_te, bi['y_pred'], td)
+                            pp = os.path.join(td, "report.pdf")
+                            generate_pdf_report(
+                                st.session_state.profile, st.session_state.target_col,
+                                st.session_state.feature_cols, st.session_state.task_type,
+                                bn, bi['metrics'], st.session_state.validation_logs,
+                                st.session_state.business_question, st.session_state.target_audience,
+                                sc, pp)
+                            with open(pp, "rb") as f: st.session_state.pdf_report = f.read()
+                        st.success("Models trained!")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+                        import traceback; st.code(traceback.format_exc())
+
             if st.session_state.ml_results is not None:
                 st.markdown("<div class='card'>", unsafe_allow_html=True)
-                st.subheader("🏆 Baseline Comparisons")
-                
-                # Metrics comparison table
-                comparison_data = []
-                for name, res in st.session_state.ml_results.items():
-                    row = {"Model": name}
-                    row.update({m: f"{v:.4f}" for m, v in res['metrics'].items()})
-                    comparison_data.append(row)
-                    
-                st.table(pd.DataFrame(comparison_data))
-                
-                st.markdown(f"⭐ Best performing model based on metrics: **{st.session_state.best_model_name}**")
+                st.subheader("🏆 Model Comparison")
+                rows = [{"Model": m, **{k: f"{v:.4f}" for k, v in r['metrics'].items()}}
+                        for m, r in st.session_state.ml_results.items()]
+                st.table(pd.DataFrame(rows))
+                st.markdown(f"⭐ Best: **{st.session_state.best_model_name}**")
                 st.markdown("</div>", unsafe_allow_html=True)
-                
-                # Display Feature Importance and Evaluation Plots
-                col_left, col_right = st.columns(2)
-                
-                with col_left:
+                cl3, cr3 = st.columns(2)
+                with cl3:
                     st.markdown("<div class='card'>", unsafe_allow_html=True)
-                    st.subheader("Feature Importances / Drivers")
-                    
-                    # Extract importances
-                    X_train, X_test, y_train, y_test, preprocessor = preprocess_and_split(
-                        st.session_state.df, 
-                        st.session_state.target_col, 
-                        st.session_state.feature_cols, 
-                        st.session_state.task_type
-                    )
-                    
-                    imp_df = extract_feature_importances(
-                        st.session_state.best_model_name, 
-                        st.session_state.best_model_info['pipeline'], 
-                        st.session_state.feature_cols
-                    )
-                    
-                    if imp_df is not None:
-                        fig_imp = px.bar(
-                            imp_df.head(15), 
-                            x='Importance', 
-                            y='Feature', 
-                            orientation='h',
-                            title=f"Top Features driving prediction",
-                            color='Importance',
-                            color_continuous_scale='Purples'
-                        )
-                        fig_imp.update_layout(
-                            yaxis={'categoryorder': 'total ascending'},
-                            paper_bgcolor='rgba(0,0,0,0)',
-                            plot_bgcolor='rgba(0,0,0,0)',
-                            font=dict(color="#E2E8F0")
-                        )
-                        st.plotly_chart(fig_imp, use_container_width=True)
+                    st.subheader("Feature Importances")
+                    idf = extract_feature_importances(
+                        st.session_state.best_model_name,
+                        st.session_state.best_model_info['pipeline'],
+                        st.session_state.feature_cols)
+                    if idf is not None:
+                        fig_i = px.bar(idf.head(15), x="Importance", y="Feature", orientation="h",
+                                       title="Top Drivers", color="Importance", color_continuous_scale="Purples")
+                        fig_i.update_layout(yaxis={"categoryorder": "total ascending"},
+                                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+                                            font=dict(color="#1E293B"))
+                        st.plotly_chart(fig_i, use_container_width=True)
                     else:
-                        st.info("Feature importances could not be directly extracted from the best model (e.g. Gradient Boosting without permutation feature weights). Standard linear/tree coefficient shapes are needed.")
+                        st.info("Importances not available for this model.")
                     st.markdown("</div>", unsafe_allow_html=True)
-                    
-                with col_right:
+                with cr3:
                     st.markdown("<div class='card'>", unsafe_allow_html=True)
-                    st.subheader("Model Diagnostic Charts")
-                    
-                    # Evaluation Plots
-                    eval_plots = generate_evaluation_plots(
-                        st.session_state.best_model_name, 
-                        y_test, 
-                        st.session_state.best_model_info['y_pred'], 
-                        st.session_state.best_model_info['y_prob'], 
-                        st.session_state.task_type
-                    )
-                    
-                    if eval_plots:
-                        selected_plot = st.selectbox("Select diagnostic plot", list(eval_plots.keys()))
-                        st.plotly_chart(eval_plots[selected_plot], use_container_width=True)
+                    st.subheader("Diagnostic Charts")
+                    _, _, _, y_t2, _ = preprocess_and_split(
+                        st.session_state.df, st.session_state.target_col,
+                        st.session_state.feature_cols, st.session_state.task_type)
+                    ep = generate_evaluation_plots(
+                        st.session_state.best_model_name, y_t2,
+                        st.session_state.best_model_info['y_pred'],
+                        st.session_state.best_model_info['y_prob'],
+                        st.session_state.task_type)
+                    if ep:
+                        sp = st.selectbox("Plot", list(ep.keys()))
+                        st.plotly_chart(ep[sp], use_container_width=True)
                     else:
-                        st.info("No diagnostics plots generated for this configuration.")
+                        st.info("No diagnostics for this configuration.")
                     st.markdown("</div>", unsafe_allow_html=True)
-                    
-    # ----------------- TAB: TRUST VALIDATION -----------------
+
+    # ── TAB 5: Validation ─────────────────────────────────
     with tab_validation:
         if st.session_state.validation_logs is None:
-            st.warning("Please train the machine learning models first in the 'Baseline ML' tab.")
+            st.warning("Run the pipeline in the **Baseline ML / Clustering** tab first.")
         else:
             st.subheader("🛡️ Automated Trust & Validation Log")
-            st.markdown("This panel runs checks for statistical health, data quality risks, and potential leakage:")
-            
             for log in st.session_state.validation_logs:
-                status = log['status']
-                
-                # HTML template for alerts
-                if status == 'CRITICAL':
-                    status_class = "status-critical"
-                    icon = "🔴"
-                elif status == 'WARNING':
-                    status_class = "status-warning"
-                    icon = "🟡"
-                else:
-                    status_class = "status-info"
-                    icon = "🟢"
-                    
+                s = log['status']
+                if s == 'CRITICAL': cls, icon, bd = "status-critical", "🔴", "#B91C1C"
+                elif s == 'WARNING': cls, icon, bd = "status-warning",  "🟡", "#92400E"
+                else:               cls, icon, bd = "status-info",     "🟢", "#065F46"
                 st.markdown(f"""
-                <div class="card" style="border-left: 5px solid {'#EF4444' if status=='CRITICAL' else ('#F59E0B' if status=='WARNING' else '#10B981')};">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-weight: 800; font-size:1.1rem;">{icon} {log['check_name']}</span>
-                        <span class="status-badge {status_class}">{status}</span>
+                <div class="log-card" style="border-left:5px solid {bd};">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span class="log-title">{icon} {log['check_name']}</span>
+                        <span class="status-badge {cls}">{s}</span>
                     </div>
-                    <p style="margin-top: 0.5rem; font-weight: 600; color: #F1F5F9;">{log['message']}</p>
-                    <p style="font-size: 0.9rem; color: #94A3B8; margin-bottom: 0;">{log['details']}</p>
-                </div>
-                """, unsafe_allow_html=True)
+                    <p class="log-msg">{log['message']}</p>
+                    <p class="log-det">{log['details']}</p>
+                </div>""", unsafe_allow_html=True)
 
-    # ----------------- TAB: REPORT EXPORT -----------------
+    # ── TAB 6: Export ─────────────────────────────────────
     with tab_export:
         if st.session_state.markdown_report is None:
-            st.warning("Please train the machine learning models first in the 'Baseline ML' tab.")
+            st.warning("Run the pipeline in the **Baseline ML / Clustering** tab first.")
         else:
-            st.subheader("📄 Export Artifacts & Analysis Package")
-            st.markdown("Download printable reports, clean reproducible python code, and packages for deployment:")
-            
-            # Layout
-            col_report, col_code = st.columns(2)
-            
-            with col_report:
+            st.subheader("📄 Export Artifacts")
+            ec1, ec2 = st.columns(2)
+            with ec1:
                 st.markdown("<div class='card'>", unsafe_allow_html=True)
-                st.subheader("Download Generated Reports")
-                st.markdown("Download documents tailored to your chosen target audience:")
-                
-                # PDF Download button
+                st.subheader("📑 Reports")
                 if st.session_state.pdf_report:
-                    st.download_button(
-                        label="📥 Download PDF Business Report",
-                        data=st.session_state.pdf_report,
-                        file_name="business_analytics_report.pdf",
-                        mime="application/pdf"
-                    )
-                    
-                # Markdown Download
-                st.download_button(
-                    label="📝 Download Markdown Report",
-                    data=st.session_state.markdown_report,
-                    file_name="business_analytics_report.md",
-                    mime="text/markdown"
-                )
-                
-                # Display markdown report inside Streamlit
-                with st.expander("Preview Generated Report (Markdown)"):
+                    st.download_button("📥 PDF Report", st.session_state.pdf_report,
+                                       "report.pdf", "application/pdf")
+                st.download_button("📝 Markdown Report", st.session_state.markdown_report,
+                                   "report.md", "text/markdown")
+                with st.expander("Preview Markdown"):
                     st.markdown(st.session_state.markdown_report)
-                    
                 st.markdown("</div>", unsafe_allow_html=True)
-                
-            with col_code:
+            with ec2:
                 st.markdown("<div class='card'>", unsafe_allow_html=True)
-                st.subheader("Reproducible Code & Packages")
-                st.markdown("Get standalone, fully commented code that can run outside this dashboard:")
-                
-                st.download_button(
-                    label="🐍 Download Reproducible Python Script",
-                    data=st.session_state.reproducible_code,
-                    file_name="reproducible_analysis.py",
-                    mime="text/plain"
-                )
-                
-                # Package creation: ZIP containing report, code, and (if size is okay) dataset
-                zip_buffer = io.BytesIO()
-                with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                    # Write markdown report
-                    zip_file.writestr("business_analytics_report.md", st.session_state.markdown_report)
-                    # Write code
-                    zip_file.writestr("reproducible_analysis.py", st.session_state.reproducible_code)
-                    # Write PDF if available
+                st.subheader("🐍 Code & Bundle")
+                st.download_button("🐍 Python Script", st.session_state.reproducible_code,
+                                   "analysis.py", "text/plain")
+                zb = io.BytesIO()
+                with zipfile.ZipFile(zb, "w", zipfile.ZIP_DEFLATED) as zf:
+                    zf.writestr("report.md", st.session_state.markdown_report)
+                    zf.writestr("analysis.py", st.session_state.reproducible_code)
                     if st.session_state.pdf_report:
-                        zip_file.writestr("business_analytics_report.pdf", st.session_state.pdf_report)
-                    # Write dataset (if uploaded file is small/memory buffer)
+                        zf.writestr("report.pdf", st.session_state.pdf_report)
                     try:
-                        if not st.session_state.file_name.endswith(('.db', '.sqlite', '.sqlite3')):
-                            # CSV string
-                            csv_data = st.session_state.df.to_csv(index=False)
-                            zip_file.writestr(f"dataset_{st.session_state.file_name}", csv_data)
-                    except:
-                        pass
-                        
-                st.download_button(
-                    label="📦 Download Complete Analysis Zip Package",
-                    data=zip_buffer.getvalue(),
-                    file_name="data2business_analysis_package.zip",
-                    mime="application/zip"
-                )
-                
-                with st.expander("Preview Reproducible Python Code"):
+                        if not st.session_state.file_name.endswith((".db", ".sqlite", ".sqlite3")):
+                            zf.writestr(f"dataset_{st.session_state.file_name}",
+                                        st.session_state.df.to_csv(index=False))
+                    except: pass
+                st.download_button("📦 Analysis ZIP", zb.getvalue(),
+                                   "analysis_package.zip", "application/zip")
+                with st.expander("Preview Python Code"):
                     st.code(st.session_state.reproducible_code, language="python")
-                    
                 st.markdown("</div>", unsafe_allow_html=True)
