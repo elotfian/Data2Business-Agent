@@ -6,7 +6,7 @@ import tempfile
 import shutil
 
 # Import modules from src
-from src.profiler import profile_dataset, recommend_kpis_and_targets, infer_column_types
+from src.profiler import load_dataset, profile_dataset, recommend_kpis_and_targets, infer_column_types
 from src.ml_engine import preprocess_and_split, train_baselines, get_best_model, extract_feature_importances
 from src.validator import run_validation_checks
 from src.reporter import generate_markdown_report, generate_reproducible_code, create_static_plots, generate_pdf_report
@@ -192,6 +192,25 @@ class TestData2BusinessAgent(unittest.TestCase):
         )
         self.assertTrue(os.path.exists(pdf_path))
         self.assertTrue(os.path.getsize(pdf_path) > 0)
+
+    def test_load_dataset_buffers(self):
+        import io
+        
+        # Test CSV buffer with .name
+        csv_data = "a,b\n1,2\n3,4"
+        csv_buffer = io.StringIO(csv_data)
+        csv_buffer.name = "test.csv"
+        df = load_dataset(csv_buffer)
+        self.assertEqual(df.shape, (2, 2))
+        
+        # Test Excel buffer with .name
+        excel_buffer = io.BytesIO()
+        df_dummy = pd.DataFrame({'a': [1, 2], 'b': [3, 4]})
+        df_dummy.to_excel(excel_buffer, index=False)
+        excel_buffer.seek(0)
+        excel_buffer.name = "test.xlsx"
+        df_excel = load_dataset(excel_buffer)
+        self.assertEqual(df_excel.shape, (2, 2))
 
 if __name__ == '__main__':
     unittest.main()

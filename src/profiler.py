@@ -15,20 +15,27 @@ def load_dataset(file_path_or_buffer, file_type=None, table_name=None):
     Returns:
     - df: pandas DataFrame, or connection object for SQLite if no table specified.
     """
-    if file_type is None and isinstance(file_path_or_buffer, str):
-        _, ext = os.path.splitext(file_path_or_buffer.lower())
-        if ext == '.csv':
-            file_type = 'csv'
-        elif ext in ['.xlsx', '.xls']:
-            file_type = 'excel'
-        elif ext == '.json':
-            file_type = 'json'
-        elif ext in ['.parquet', '.pq']:
-            file_type = 'parquet'
-        elif ext in ['.db', '.sqlite', '.sqlite3']:
-            file_type = 'sqlite'
-        else:
-            raise ValueError(f"Could not infer file type for extension {ext}")
+    if file_type is None:
+        filename = None
+        if isinstance(file_path_or_buffer, str):
+            filename = file_path_or_buffer
+        elif hasattr(file_path_or_buffer, 'name') and isinstance(file_path_or_buffer.name, str):
+            filename = file_path_or_buffer.name
+            
+        if filename:
+            _, ext = os.path.splitext(filename.lower())
+            if ext == '.csv':
+                file_type = 'csv'
+            elif ext in ['.xlsx', '.xls']:
+                file_type = 'excel'
+            elif ext == '.json':
+                file_type = 'json'
+            elif ext in ['.parquet', '.pq']:
+                file_type = 'parquet'
+            elif ext in ['.db', '.sqlite', '.sqlite3']:
+                file_type = 'sqlite'
+            else:
+                raise ValueError(f"Could not infer file type for extension {ext}")
 
     if file_type == 'csv':
         return pd.read_csv(file_path_or_buffer)
