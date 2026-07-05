@@ -266,14 +266,25 @@ else:
         st.markdown("</div>", unsafe_allow_html=True)
 
         if st.session_state.kpi_recs:
+            # Recommended Targets
             recs = st.session_state.kpi_recs['recommended_targets']
             if recs:
                 st.subheader("💡 Recommended Targets")
                 st.table(pd.DataFrame([{
-                    "Column": r['column'], "Type": r['type'],
+                    "Column": r['column'],
+                    "Type": r['type'],
                     "Task": r['task_suggestion'],
                     "Confidence": "⭐⭐⭐ High" if r['score'] >= 5 else "⭐⭐ Medium"
                 } for r in recs]))
+            # Recommended KPIs
+            kpi_recs = st.session_state.kpi_recs['recommended_kpis']
+            if kpi_recs:
+                st.subheader("📊 Recommended KPIs")
+                st.table(pd.DataFrame([{
+                    "Column": r['column'],
+                    "Type": r['type'],
+                    "Score": r['score']
+                } for r in kpi_recs]))
 
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.subheader("Configure Pipeline")
