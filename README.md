@@ -41,8 +41,8 @@ Analyze dataset properties, structure, missing data, and semantic types immediat
 ![Data Profiling](assets/profiling.png)
 
 ### 2. Interactive Exploratory Data Analysis (EDA)
-Identify relationships, numeric correlations, and distribution characteristics through beautiful Plotly charts, including a Feature vs Target plot.
-![Feature vs Target](assets/feature_vs_target.png)
+Identify relationships, numeric correlations, and distribution characteristics through beautiful Plotly charts.
+![Visual Insights](assets/eda.png)
 
 ### 3. Machine Learning Modeling Baseline
 Automatically train, evaluate, and compare Logistic Regression, Random Forest, and Gradient Boosting models.
