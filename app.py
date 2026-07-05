@@ -488,7 +488,7 @@ else:
                 for idx, (pn, pf) in enumerate(dp2.items()):
                     with (cl2 if idx % 2 == 0 else cr2):
                         st.markdown("<div class='card'>", unsafe_allow_html=True)
-                        st.plotly_chart(pf, use_container_width=True)
+                        st.plotly_chart(pf, use_container_width=True, key=f"clustering_chart_{pn}")
                         st.markdown("</div>", unsafe_allow_html=True)
         else:
             st.subheader("🤖 Baseline Machine Learning Pipeline")
