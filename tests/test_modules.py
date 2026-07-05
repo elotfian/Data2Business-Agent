@@ -212,5 +212,29 @@ class TestData2BusinessAgent(unittest.TestCase):
         df_excel = load_dataset(excel_buffer)
         self.assertEqual(df_excel.shape, (2, 2))
 
+    def test_missing_targets_drop(self):
+        # Create dataset with NaNs in target
+        df = pd.DataFrame({
+            'feature1': [1.0, 2.0, 3.0, 4.0, 5.0],
+            'feature2': ['A', 'B', 'A', 'B', 'A'],
+            'target': [1.0, np.nan, 3.0, np.nan, 5.0]
+        })
+        
+        # 1. Verify preprocess_and_split drops rows (should split remaining 3 rows)
+        X_train, X_test, y_train, y_test, preprocessor = preprocess_and_split(
+            df, 'target', ['feature1', 'feature2'], 'Regression'
+        )
+        self.assertEqual(len(X_train) + len(X_test), 3)
+        self.assertFalse(y_train.isnull().any())
+        self.assertFalse(y_test.isnull().any())
+        
+        # 2. Verify run_validation_checks flags target missingness
+        logs = run_validation_checks(
+            df, 'target', ['feature1', 'feature2'], 'Regression',
+            train_score=0.8, test_score=0.7
+        )
+        check_names = [log['check_name'] for log in logs]
+        self.assertIn('Missing Values in Target', check_names)
+
 if __name__ == '__main__':
     unittest.main()

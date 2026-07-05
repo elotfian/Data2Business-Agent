@@ -54,6 +54,18 @@ def run_validation_checks(df, target_col, feature_cols, task_type, train_score, 
             'details': "All selected feature columns contain complete or mostly complete data."
         })
         
+    # 2b. Target missing values check
+    if task_type in ['Classification', 'Regression'] and target_col is not None:
+        target_missing = df[target_col].isnull().sum()
+        if target_missing > 0:
+            target_missing_pct = (target_missing / num_rows) * 100
+            logs.append({
+                'status': 'WARNING',
+                'check_name': 'Missing Values in Target',
+                'message': f"Target column '{target_col}' contains {target_missing} missing values ({target_missing_pct:.1f}%).",
+                'details': "Rows containing missing target values are automatically dropped prior to supervised training."
+            })
+        
     # 3. Target Leakage (Only for Classification/Regression)
     if task_type in ['Classification', 'Regression'] and target_col is not None:
         leakage_detected = False

@@ -26,8 +26,13 @@ def preprocess_and_split(df, target_col, feature_cols, task_type, test_size=0.2,
     - X_train, X_test, y_train, y_test
     - preprocessor: fitted ColumnTransformer or pipeline
     """
-    X = df[feature_cols].copy()
-    y = df[target_col].copy()
+    # Drop rows where target is null
+    df_clean = df.dropna(subset=[target_col])
+    if len(df_clean) == 0:
+        raise ValueError(f"Target column '{target_col}' contains only missing values. Cannot train supervised models.")
+        
+    X = df_clean[feature_cols].copy()
+    y = df_clean[target_col].copy()
     
     # Identify numeric and categorical features
     numeric_features = []
