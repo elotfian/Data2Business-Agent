@@ -87,7 +87,7 @@ class TestData2BusinessAgent(unittest.TestCase):
         task_type = 'Classification'
         
         # 1. Preprocess & split
-        X_train, X_test, y_train, y_test, preprocessor = preprocess_and_split(
+        X_train, X_test, y_train, y_test, preprocessor, _ = preprocess_and_split(
             self.df_class, target_col, feature_cols, task_type
         )
         self.assertEqual(len(X_train), 120)
@@ -119,7 +119,7 @@ class TestData2BusinessAgent(unittest.TestCase):
         task_type = 'Regression'
         
         # 1. Preprocess & split
-        X_train, X_test, y_train, y_test, preprocessor = preprocess_and_split(
+        X_train, X_test, y_train, y_test, preprocessor, _ = preprocess_and_split(
             self.df_reg, target_col, feature_cols, task_type
         )
         self.assertEqual(len(X_train), 120)
@@ -143,7 +143,7 @@ class TestData2BusinessAgent(unittest.TestCase):
         task_type = 'Classification'
         
         # Train baseline
-        X_train, X_test, y_train, y_test, preprocessor = preprocess_and_split(
+        X_train, X_test, y_train, y_test, preprocessor, _ = preprocess_and_split(
             self.df_class, target_col, feature_cols, task_type
         )
         results = train_baselines(X_train, y_train, X_test, y_test, preprocessor, task_type)
@@ -221,7 +221,7 @@ class TestData2BusinessAgent(unittest.TestCase):
         })
         
         # 1. Verify preprocess_and_split drops rows (should split remaining 3 rows)
-        X_train, X_test, y_train, y_test, preprocessor = preprocess_and_split(
+        X_train, X_test, y_train, y_test, preprocessor, _ = preprocess_and_split(
             df, 'target', ['feature1', 'feature2'], 'Regression'
         )
         self.assertEqual(len(X_train) + len(X_test), 3)

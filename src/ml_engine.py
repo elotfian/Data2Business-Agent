@@ -34,17 +34,39 @@ def preprocess_and_split(df, target_col, feature_cols, task_type, test_size=0.2,
     X = df_clean[feature_cols].copy()
     y = df_clean[target_col].copy()
     
+    # Train-test split
+    stratify = y if task_type == 'Classification' and y.nunique() >= 2 else None
+    
+    # If a class is too rare (only 1 occurrence), stratify might fail. Check class counts:
+    if stratify is not None:
+        class_counts = y.value_counts()
+        if (class_counts < 2).any():
+            stratify = None
+            
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=test_size, random_state=random_state, stratify=stratify
+    )
+    
+    # Filter out features that are completely null in X_train
+    valid_features = [col for col in feature_cols if X_train[col].notnull().any()]
+    if not valid_features:
+        raise ValueError("All selected feature columns contain only missing values in the training split. Please select columns with valid data.")
+        
+    X_train = X_train[valid_features].copy()
+    X_test = X_test[valid_features].copy()
+    
     # Identify numeric and categorical features
     numeric_features = []
     categorical_features = []
     
-    for col in feature_cols:
-        if pd.api.types.is_numeric_dtype(X[col]) and X[col].nunique() > 10:
+    for col in valid_features:
+        if pd.api.types.is_numeric_dtype(X_train[col]) and X_train[col].nunique() > 10:
             numeric_features.append(col)
         else:
             categorical_features.append(col)
             # Ensure categorical is string
-            X[col] = X[col].astype(str)
+            X_train[col] = X_train[col].astype(str)
+            X_test[col] = X_test[col].astype(str)
             
     # Define transformers
     numeric_transformer = Pipeline(steps=[
@@ -53,8 +75,8 @@ def preprocess_and_split(df, target_col, feature_cols, task_type, test_size=0.2,
     ])
     
     # For categorical features, split by cardinality
-    low_card_features = [col for col in categorical_features if X[col].nunique() <= 15]
-    high_card_features = [col for col in categorical_features if X[col].nunique() > 15]
+    low_card_features = [col for col in categorical_features if X_train[col].nunique() <= 15]
+    high_card_features = [col for col in categorical_features if X_train[col].nunique() > 15]
     
     transformers = []
     if numeric_features:
@@ -72,20 +94,7 @@ def preprocess_and_split(df, target_col, feature_cols, task_type, test_size=0.2,
         
     preprocessor = ColumnTransformer(transformers=transformers)
     
-    # Train-test split
-    stratify = y if task_type == 'Classification' and y.nunique() >= 2 else None
-    
-    # If a class is too rare (only 1 occurrence), stratify might fail. Check class counts:
-    if stratify is not None:
-        class_counts = y.value_counts()
-        if (class_counts < 2).any():
-            stratify = None
-            
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=test_size, random_state=random_state, stratify=stratify
-    )
-    
-    return X_train, X_test, y_train, y_test, preprocessor
+    return X_train, X_test, y_train, y_test, preprocessor, valid_features
 
 def train_baselines(X_train, y_train, X_test, y_test, preprocessor, task_type):
     """
@@ -389,13 +398,18 @@ def train_clustering(df, feature_cols, n_clusters=3, random_state=42):
     Returns:
     - results: dict of model name -> {model, preprocessor, labels, metrics, X_preprocessed}
     """
-    X = df[feature_cols].copy()
+    # Filter out feature columns that are completely empty (100% missing values)
+    valid_features = [col for col in feature_cols if df[col].notnull().any()]
+    if not valid_features:
+        raise ValueError("All selected feature columns contain only missing values. Please select columns with valid data.")
+        
+    X = df[valid_features].copy()
     
     # 1. Preprocessing Pipeline
     numeric_features = []
     categorical_features = []
     
-    for col in feature_cols:
+    for col in valid_features:
         if pd.api.types.is_numeric_dtype(X[col]) and X[col].nunique() > 10:
             numeric_features.append(col)
         else:
@@ -454,7 +468,8 @@ def train_clustering(df, feature_cols, n_clusters=3, random_state=42):
             'Calinski-Harabasz Index': km_ch,
             'Inertia (Within Cluster Sum)': float(kmeans.inertia_)
         },
-        'X_preprocessed': X_preprocessed
+        'X_preprocessed': X_preprocessed,
+        'valid_features': valid_features
     }
     
     # B. Gaussian Mixture Model
@@ -478,7 +493,8 @@ def train_clustering(df, feature_cols, n_clusters=3, random_state=42):
             'Calinski-Harabasz Index': gmm_ch,
             'BIC (Bayesian Info Criterion)': float(gmm.bic(X_preprocessed))
         },
-        'X_preprocessed': X_preprocessed
+        'X_preprocessed': X_preprocessed,
+        'valid_features': valid_features
     }
     
     return results

@@ -447,6 +447,7 @@ else:
                             n_clusters=st.session_state.n_clusters)
                         bcn = max(cr, key=lambda m: cr[m]['metrics'].get("Silhouette Score", -1))
                         bl  = cr[bcn]['labels']
+                        st.session_state.feature_cols      = cr[bcn]['valid_features']
                         st.session_state.cluster_results   = cr
                         st.session_state.best_cluster_name = bcn
                         st.session_state.cluster_labels    = bl
@@ -510,9 +511,10 @@ else:
             if st.button("🚀 Train & Evaluate Models"):
                 with st.spinner("Training…"):
                     try:
-                        X_tr, X_te, y_tr, y_te, pre = preprocess_and_split(
+                        X_tr, X_te, y_tr, y_te, pre, valid_feats = preprocess_and_split(
                             st.session_state.df, st.session_state.target_col,
                             st.session_state.feature_cols, st.session_state.task_type)
+                        st.session_state.feature_cols    = valid_feats
                         res = train_baselines(X_tr, y_tr, X_te, y_te, pre, st.session_state.task_type)
                         bn, bi = get_best_model(res, st.session_state.task_type)
                         st.session_state.ml_results      = res
@@ -587,7 +589,7 @@ else:
                 with cr3:
                     st.markdown("<div class='card'>", unsafe_allow_html=True)
                     st.subheader("Diagnostic Charts")
-                    _, _, _, y_t2, _ = preprocess_and_split(
+                    _, _, _, y_t2, _, _ = preprocess_and_split(
                         st.session_state.df, st.session_state.target_col,
                         st.session_state.feature_cols, st.session_state.task_type)
                     ep = generate_evaluation_plots(
