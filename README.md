@@ -213,4 +213,4 @@ Data2Business-Agent/
 
 ## 📝 License
 
-This project was developed as a capstone project. Please check with the repository owner for licensing details.
+This code is released under the MIT License.
