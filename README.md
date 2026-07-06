@@ -1,94 +1,212 @@
-# Data2Business Agent - Business Analytics & Machine Learning Assistant
+# 🤖 Data2Business Agent
 
-**Data2Business Agent** is an interactive, intelligent web application designed for students, analysts, researchers, and business teams. It automates dataset profiling, exploratory data analysis (EDA), KPI identification, automated trust validation, machine learning modeling, and premium multi-audience reporting.
+**Transform raw data into trustworthy insights, KPIs, and baseline ML models.**
+
+Data2Business Agent is an end-to-end, interactive analytics application built with [Streamlit](https://streamlit.io/). It guides users—students, analysts, researchers, and business teams—through a structured workflow: from dataset upload and profiling, through KPI identification and exploratory visualization, to automated machine learning, trust validation, and multi-audience report generation.
 
 ---
 
-## 🔄 Workflow Diagram
-
-The following diagram illustrates the end-to‑to‑end workflow of the Data2Business Agent, showing how raw data is transformed into validated insights and tailored business reports:
+## 🔄 Workflow
 
 ```mermaid
 graph TD
-    A[📂 Load Data: CSV, Excel, SQLite, Parquet] --> B[📊 Step 1: Data Profile & Quality Assessment]
-    B --> C[🎯 Step 2: Goal & Target Configuration]
-    C --> D[📈 Step 3: Visual Insights & EDA]
-    D --> E[🤖 Step 4: Baseline Machine Learning Pipeline]
-    E --> F[🛡️ Step 5: Automated Trust & Validation Log]
-    F --> G[📋 Step 6: Multi‑Audience Report Export]
-    G --> H[Executive Report PDF/MD]
-    G --> I[Manager Report PDF/MD]
-    G --> J[Technical Report PDF/MD & Code]
+    A["📂 Upload Data<br>CSV · Excel · JSON · Parquet · SQLite"] --> B["📊 Data Profile<br>Quality & semantic typing"]
+    B --> C["🎯 Business Goal & Target<br>Classification · Regression · Clustering"]
+    C --> D["📈 Visual Insights<br>EDA charts & correlations"]
+    D --> E["🤖 Baseline ML / Clustering<br>Train & compare models"]
+    E --> F["🛡️ Trust Validation<br>Leakage · imbalance · overfitting"]
+    F --> G["📄 Report Export"]
+    G --> H["Executive PDF/MD"]
+    G --> I["Manager PDF/MD"]
+    G --> J["Technical PDF/MD & Code"]
 ```
 
 ---
 
-## 🚀 Key Features
+## ✨ Key Features
 
-1. **Flexible Data Loading & Profiling:** Upload CSV, Excel, JSON, Parquet, or SQLite databases. The agent profiles data sizes, column types, missing values, duplicates, and general data completeness.
-2. **Interactive EDA Visualizations:** Instantly view Plotly charts for target distribution, numeric correlations, and predictive feature relationship plots.
-3. **Automated KPI & Target Suggestion:** Intelligent recommendation engine suggests classification or regression target variables based on naming patterns, semantic structure, and entropy.
-4. **Baseline Machine Learning Pipeline:** Automatically handles data splitting, numeric scaling, median imputation, and categorical encoding. Trains and compares Logistic Regression/Ridge, Random Forests, and Gradient Boosting models, choosing the champion model automatically.
-5. **🛡️ Trust & Validation Log:** Runs diagnostic checks to flag potential target leakage, severe class imbalances, high feature multicollinearity, overfitting, high missingness, and sample size constraints.
-6. **Tailored Reporting & Exports:** Generates reports structured for **Executive**, **Manager**, or **Technical** audiences. Downloads include Markdown reports, styled PDFs with embedded visualizations, fully executable reproducible Python scripts, and a complete ZIP package.
+### 📊 Data Profiling & Quality Assessment
+- Accepts **CSV, Excel, JSON, Parquet, and SQLite** files.
+- Automatically profiles rows, columns, missing values, duplicates, and data completeness.
+- Infers semantic column types: **Numeric, Categorical, Datetime, ID, Text, Boolean**.
+- Presents a sortable column-level summary with statistics and top values.
+
+### 🎯 Intelligent KPI & Target Recommendation
+- Scores columns by entropy, naming patterns, and uniqueness to recommend the best **target variable** and potential **KPIs**.
+- Supports **Classification**, **Regression**, and **Clustering** task types with auto-detection.
+
+### 📈 Interactive Visual Insights (EDA)
+- **Target distribution** charts with distinct color palettes for supervised tasks.
+- **Numeric correlation heatmaps** and **top-feature bar charts**.
+- **Feature-vs-target** scatter, box, and violin plots (adapts to task type).
+- **Clustering mode**: feature distributions colored by cluster assignment, PCA/t-SNE projections.
+
+### 🤖 Baseline Machine Learning Pipeline
+- Automated preprocessing: imputation, scaling, one-hot encoding.
+- **Classification** models: Logistic Regression, Random Forest, HistGradient Boosting.
+- **Regression** models: Ridge Regression, Random Forest, HistGradient Boosting.
+- **Clustering** models: K-Means, Gaussian Mixture (GMM).
+- Automatic champion model selection with cross-validation.
+- Interactive diagnostic charts: confusion matrices, ROC curves, residual plots, silhouette analysis.
+
+### ⏳ Animated Training Dashboard
+- Real-time loading animation with rotating dataset facts displayed during model training.
+- Shows dataset dimensions, completeness, and pipeline progress while the server computes.
+
+### 🛡️ Automated Trust & Validation
+- Checks for **target leakage**, **severe class imbalance**, and **high feature multicollinearity**.
+- Detects **overfitting** (train vs. test metric divergence), **high missingness**, and **small sample sizes**.
+- Clustering-specific checks: **silhouette quality**, **Davies-Bouldin index**, **cluster size imbalance**.
+- Color-coded severity badges: 🔴 Critical, 🟡 Warning, 🟢 Info.
+
+### 📄 Multi-Audience Report Export
+- Generates structured reports for **Executive**, **Manager**, and **Technical** audiences.
+- Export formats: **Markdown**, **styled PDF** (with embedded charts), **reproducible Python script**.
+- One-click **ZIP bundle** download containing all report artifacts.
 
 ---
 
-## 📸 Application Interface & Screenshots
+## 📸 Screenshots
 
-### 1. Data Profiling & Quality Assessment
-Analyze dataset properties, structure, missing data, and semantic types immediately upon upload.
+### Data Profiling
 ![Data Profiling](assets/profiling.png)
 
-### 2. Interactive Exploratory Data Analysis (EDA)
-Identify relationships, numeric correlations, and distribution characteristics through beautiful Plotly charts.
+### Visual Insights (EDA)
 ![Visual Insights](assets/eda.png)
 
-### 3. Machine Learning Modeling Baseline
-Automatically train, evaluate, and compare Logistic Regression, Random Forest, and Gradient Boosting models.
+### Machine Learning Modeling
 ![Baseline ML](assets/ml_modeling.png)
 
-### 4. Automated Trust & Validation Log
-Audit modeling hazards, multicollinearity, target leakage, and overfitting indicators.
+### Trust & Validation Log
 ![Trust Validation](assets/trust_log.png)
 
-### 5. Multi‑Audience Reporting & Export
-Export highly polished PDF or Markdown reports tailored to technical, managerial, or executive stakeholders.
+### Report Export
 ![Report Export](assets/reporting.png)
 
 ---
 
 ## 🛠️ Installation & Setup
 
-1. **Activate Virtual Environment:**
-   Run in PowerShell:
-   ```powershell
-   .venv\Scripts\activate
-   ```
+### Prerequisites
+- **Python 3.10+** (tested on 3.11)
+- `pip` package manager
 
-2. **Install Dependencies:**
-   Dependencies are defined in `requirements.txt`:
-   ```bash
-   pip install -r requirements.txt
-   ```
+### Local Development
 
-3. **Launch the Dashboard Application:**
-   Start the interactive Streamlit dashboard:
-   ```bash
-   streamlit run app.py
-   ```
+```bash
+# 1. Clone the repository
+git clone https://github.com/<your-username>/Data2Business-Agent.git
+cd Data2Business-Agent
+
+# 2. Create and activate a virtual environment
+python -m venv .venv
+
+# Windows PowerShell
+.venv\Scripts\activate
+
+# macOS / Linux
+source .venv/bin/activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Launch the application
+streamlit run app.py
+```
+
+The app opens at **http://localhost:8501** by default.
+
+### Docker
+
+```bash
+# Build the image
+docker build -t data2business-agent .
+
+# Run the container
+docker run -p 8080:8080 data2business-agent
+```
+
+### Google Cloud Run
+
+The project includes a `Dockerfile` and `.gcloudignore` pre-configured for Cloud Run deployment:
+
+```bash
+gcloud run deploy data2business-agent \
+  --source . \
+  --region europe-west1 \
+  --allow-unauthenticated
+```
+
+---
+
+## 🧪 Running Tests
+
+```bash
+python -m pytest tests/ -v
+```
+
+Or with `unittest` directly:
+
+```bash
+python -m unittest discover -s tests -v
+```
+
+The test suite covers:
+- Dataset loading and profiling
+- Semantic type inference
+- ML pipeline preprocessing, training, and evaluation
+- Validation checks (leakage, imbalance, multicollinearity)
+- Report generation (Markdown, PDF, reproducible code)
 
 ---
 
 ## 📁 Repository Structure
 
-- `app.py`: Streamlit entry point coordinating the multi‑step user dashboard.
-- `requirements.txt`: Python package requirements.
-- `src/`:
-  - `profiler.py`: Loads tabular files and SQLite tables, infers semantic datatypes, and recommends KPIs/targets.
-  - `ml_engine.py`: Implements Scikit‑learn pipelines, model baselines training, metrics evaluation, and Plotly interactive diagnostic charts.
-  - `validator.py`: Evaluates data quality and modeling hazards (leakage, overfitting, class imbalances).
-  - `reporter.py`: Exports tailored reports (Markdown, styled PDF via FPDF2) and reproducible python script.
-- `tests/`:
-  - `test_modules.py`: Automated unit test suite verifying each module's pipeline logic.
-- `assets/`: Contains screenshots of the application.
+```
+Data2Business-Agent/
+├── app.py                  # Streamlit entry point – multi-tab dashboard
+├── requirements.txt        # Python dependencies
+├── Dockerfile              # Container image for Cloud Run
+├── .gitignore              # Git ignore rules
+├── .gcloudignore           # Cloud Build ignore rules
+├── iris.csv                # Sample dataset for quick demo
+├── assets/                 # Screenshots for documentation
+│   ├── profiling.png
+│   ├── eda.png
+│   ├── ml_modeling.png
+│   ├── trust_log.png
+│   ├── reporting.png
+│   └── dashboard.png
+├── src/                    # Core modules
+│   ├── __init__.py
+│   ├── profiler.py         # Data loading, profiling, KPI recommendation
+│   ├── ml_engine.py        # ML pipelines, training, evaluation, charts
+│   ├── validator.py        # Trust & validation checks
+│   └── reporter.py         # Report generation (MD, PDF, code, ZIP)
+└── tests/
+    └── test_modules.py     # Unit tests for all modules
+```
+
+---
+
+## 📦 Dependencies
+
+| Package | Purpose |
+|---------|---------|
+| `streamlit` | Interactive web dashboard |
+| `pandas` | Data manipulation |
+| `numpy` | Numerical operations |
+| `plotly` | Interactive charts |
+| `scikit-learn` | Machine learning pipelines |
+| `fpdf2` | Styled PDF report generation |
+| `matplotlib` / `seaborn` | Static chart generation for reports |
+| `statsmodels` | Statistical analysis utilities |
+| `openpyxl` | Excel file support |
+| `pyarrow` | Parquet file support |
+| `jinja2` | Template rendering |
+
+---
+
+## 📝 License
+
+This project was developed as a capstone project. Please check with the repository owner for licensing details.

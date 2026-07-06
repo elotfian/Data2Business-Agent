@@ -1,0 +1,18 @@
+# .gcloudignore – Exclude unnecessary files from Cloud Build context
+.git/
+.gitignore
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite
+*.db
+*.ipynb_checkpoints/
+*.DS_Store
+*.log
+*.exe
+*.msi
+tests/
+assets/
+README.md

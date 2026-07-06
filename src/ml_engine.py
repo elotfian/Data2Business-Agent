@@ -108,13 +108,13 @@ def train_baselines(X_train, y_train, X_test, y_test, preprocessor, task_type):
     if task_type == 'Classification':
         models = {
             'Logistic Regression': LogisticRegression(max_iter=1000, random_state=42),
-            'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1),
+            'Random Forest': RandomForestClassifier(n_estimators=100, random_state=42),
             'Gradient Boosting': HistGradientBoostingClassifier(random_state=42)
         }
     else:
         models = {
             'Ridge Regression': Ridge(random_state=42),
-            'Random Forest': RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1),
+            'Random Forest': RandomForestRegressor(n_estimators=100, random_state=42),
             'Gradient Boosting': HistGradientBoostingRegressor(random_state=42)
         }
         

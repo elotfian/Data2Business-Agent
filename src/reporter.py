@@ -170,7 +170,7 @@ def generate_reproducible_code(file_path_or_name, target_col, feature_cols, task
             model_inst = "model = LogisticRegression(max_iter=1000, random_state=42)"
         elif best_model_name == 'Random Forest':
             model_import = "from sklearn.ensemble import RandomForestClassifier"
-            model_inst = "model = RandomForestClassifier(n_estimators=100, random_state=42, n_jobs=-1)"
+            model_inst = "model = RandomForestClassifier(n_estimators=100, random_state=42)"
         else: # Gradient Boosting
             model_import = "from sklearn.ensemble import HistGradientBoostingClassifier"
             model_inst = "model = HistGradientBoostingClassifier(random_state=42)"
@@ -180,7 +180,7 @@ def generate_reproducible_code(file_path_or_name, target_col, feature_cols, task
             model_inst = "model = Ridge(random_state=42)"
         elif best_model_name == 'Random Forest':
             model_import = "from sklearn.ensemble import RandomForestRegressor"
-            model_inst = "model = RandomForestRegressor(n_estimators=100, random_state=42, n_jobs=-1)"
+            model_inst = "model = RandomForestRegressor(n_estimators=100, random_state=42)"
         else: # Gradient Boosting
             model_import = "from sklearn.ensemble import HistGradientBoostingRegressor"
             model_inst = "model = HistGradientBoostingRegressor(random_state=42)"

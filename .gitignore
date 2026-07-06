@@ -2,18 +2,40 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
 .venv/
 venv/
 ENV/
 env/
-.pytest_cache/
 
-# User-specific
+# Testing
+.pytest_cache/
+htmlcov/
+.coverage
+
+# IDE / Editor
 .idea/
 .vscode/
 *.swp
 *.swo
+*.sublime-*
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Installers & binaries
+*.exe
+*.msi
+
+# Logs & temp
+*.log
+*.tmp
+
+# Data artifacts (generated at runtime)
+*.sqlite
+*.db

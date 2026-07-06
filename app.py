@@ -85,6 +85,64 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+forced_tab = st.session_state.get("active_tab_name")
+forced_tab_js = f"'{forced_tab}'" if forced_tab else "null"
+
+st.components.v1.html(f"""
+    <script>
+        var doc = window.parent.document;
+        var forcedTab = {forced_tab_js};
+        
+        if (forcedTab) {{
+            localStorage.setItem('activeTabName', forcedTab);
+        }}
+        
+        function restoreActiveTab() {{
+            var savedTab = localStorage.getItem('activeTabName');
+            if (savedTab) {{
+                var attempts = 0;
+                var interval = setInterval(function() {{
+                    attempts++;
+                    var tabs = doc.querySelectorAll('button[data-baseweb="tab"]');
+                    if (tabs.length > 0) {{
+                        for (var i = 0; i < tabs.length; i++) {{
+                            if (tabs[i].textContent.includes(savedTab)) {{
+                                if (tabs[i].getAttribute('aria-selected') !== 'true') {{
+                                    tabs[i].click();
+                                }} else {{
+                                    clearInterval(interval);
+                                }}
+                                break;
+                            }}
+                        }}
+                    }}
+                    if (attempts > 50) {{
+                        clearInterval(interval);
+                    }}
+                }}, 100);
+            }}
+        }}
+
+        function setupTabListeners() {{
+            if (!window.tabListenerAdded) {{
+                doc.addEventListener('click', function(e) {{
+                    var tabButton = e.target.closest('button[data-baseweb="tab"]');
+                    if (tabButton) {{
+                        localStorage.setItem('activeTabName', tabButton.textContent.trim());
+                    }}
+                }});
+                window.tabListenerAdded = true;
+            }}
+        }}
+
+        restoreActiveTab();
+        setupTabListeners();
+    </script>
+""", height=0)
+
+if forced_tab:
+    st.session_state.active_tab_name = None
+
 _DEFAULTS = {
     "uploaded_file": None, "df": None, "file_name": "",
     "sqlite_tables": [], "selected_table": None,
@@ -97,6 +155,7 @@ _DEFAULTS = {
     "reproducible_code": None, "pdf_report": None,
     "business_question": "Predict customer churn based on transaction history and account profiles",
     "target_audience": "manager",
+    "active_tab_name": None,
 }
 for _k, _v in _DEFAULTS.items():
     if _k not in st.session_state:
@@ -108,6 +167,165 @@ def reset_state():
     for k, v in _DEFAULTS.items():
         if k not in skip:
             st.session_state[k] = v
+
+
+def render_fancy_training_loader(profile, feature_cols, target_col, task_type):
+    # Calculate completeness
+    total_c = profile['num_rows'] * profile['num_cols']
+    null_c = 0
+    num_categoricals = 0
+    num_numerics = 0
+    for c in profile.get('columns', []):
+        if c.get('missing_percentage', 0) > 0:
+            null_c += (c['missing_percentage'] / 100.0) * profile['num_rows']
+        if c.get('semantic_type') == 'Numeric':
+            num_numerics += 1
+        elif c.get('semantic_type') == 'Categorical':
+            num_categoricals += 1
+    completeness = ((total_c - null_c) / total_c * 100) if total_c > 0 else 100.0
+    
+    # Generate list of messages
+    import json
+    if task_type == "Clustering":
+        messages = [
+            "🤖 Data2Business Engine is compiling the pipeline...",
+            f"📊 Row count: {profile['num_rows']:,} records detected.",
+            f"🗂️ Column count: {profile['num_cols']} dimensions.",
+            f"🧹 Data completeness: {completeness:.1f}% general fill rate.",
+            f"🔍 Clustering features: {len(feature_cols)} predictors selected.",
+            f"🔢 Variables: {num_numerics} numeric, {num_categoricals} categorical features.",
+            "⚙️ Running Imputer & Scaler on predictors...",
+            "🧠 Fitting K-Means baseline models...",
+            "🌀 Fitting Gaussian Mixture Models baseline...",
+            "📊 Evaluating cluster silhouette and davies-bouldin scores...",
+            "🛡️ Running Automated Data quality checks...",
+            "📊 Generating cluster projection charts..."
+        ]
+    else:
+        messages = [
+            "🤖 Data2Business Engine is compiling the pipeline...",
+            f"📊 Row count: {profile['num_rows']:,} records detected.",
+            f"🗂️ Column count: {profile['num_cols']} dimensions.",
+            f"🧹 Data completeness: {completeness:.1f}% general fill rate.",
+            f"🔍 Training features: {len(feature_cols)} predictors selected.",
+            f"🔢 Variables: {num_numerics} numeric, {num_categoricals} categorical features.",
+            "⚙️ Running Imputer & Scaler on predictors...",
+            "🧠 Training Logistic Regression baseline...",
+            "🌲 Training Random Forest Classifier baseline...",
+            "⚡ Training HistGradient Boosting baseline...",
+            "🎯 Running Cross-Validation & Hyperparameter audit...",
+            "🛡️ Running Automated Trust & Data Leakage checks...",
+            "📊 Generating performance metrics and charts..."
+        ]
+    messages_json = json.dumps(messages)
+    
+    return f"""
+    <div style="
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: linear-gradient(135deg, #1E1B4B 0%, #312E81 100%);
+        border-radius: 16px;
+        padding: 2.5rem 2rem;
+        color: #FFFFFF;
+        text-align: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+        border: 1px solid #4338CA;
+        overflow: hidden;
+        position: relative;
+    ">
+        <div style="
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 60%);
+            pointer-events: none;
+        "></div>
+        
+        <div style="display: inline-block; position: relative; width: 80px; height: 80px; margin-bottom: 1rem;">
+            <div style="
+                box-sizing: border-box;
+                display: block;
+                position: absolute;
+                width: 64px;
+                height: 64px;
+                margin: 8px;
+                border: 6px solid #4F46E5;
+                border-radius: 50%;
+                animation: ring 1.2s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+                border-color: #4F46E5 transparent transparent transparent;
+            "></div>
+            <div style="
+                position: absolute;
+                width: 64px;
+                height: 64px;
+                margin: 8px;
+                border: 6px solid #7C3AED;
+                border-radius: 50%;
+                filter: blur(8px);
+                opacity: 0.6;
+                animation: ring-reverse 1.8s linear infinite;
+                border-color: transparent transparent #7C3AED transparent;
+            "></div>
+        </div>
+        
+        <h3 style="margin: 0 0 0.25rem 0; font-size: 1.4rem; font-weight: 700; background: linear-gradient(90deg, #818CF8, #F43F5E); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
+            Baseline ML Pipeline Training
+        </h3>
+        
+        <p style="color: #A5B4FC; font-size: 0.85rem; font-weight: 600; margin: 0 0 1.5rem 0; letter-spacing: 0.05em; text-transform: uppercase;">
+            System is working on your data
+        </p>
+        
+        <div style="
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: #E0E7FF;
+        ">
+            <span id="dynamic-fact" style="opacity: 1; transition: opacity 0.3s ease;">
+                Initializing baseline pipeline...
+            </span>
+        </div>
+        
+        <style>
+            @keyframes ring {{
+                0% {{ transform: rotate(0deg); }}
+                100% {{ transform: rotate(360deg); }}
+            }}
+            @keyframes ring-reverse {{
+                0% {{ transform: rotate(360deg); }}
+                100% {{ transform: rotate(0deg); }}
+            }}
+        </style>
+        
+        <script>
+            const facts = {messages_json};
+            let currentIndex = 0;
+            const factElement = document.getElementById('dynamic-fact');
+            
+            function rotateFacts() {{
+                if (factElement) {{
+                    factElement.style.opacity = 0;
+                    setTimeout(() => {{
+                        currentIndex = (currentIndex + 1) % facts.length;
+                        factElement.textContent = facts[currentIndex];
+                        factElement.style.opacity = 1;
+                    }}, 300);
+                }}
+            }}
+            
+            setInterval(rotateFacts, 1800);
+        </script>
+    </div>
+    """
 
 
 # ── Sidebar ──────────────────────────────────────────────────
@@ -265,27 +483,6 @@ else:
         st.session_state.target_audience = ta
         st.markdown("</div>", unsafe_allow_html=True)
 
-        if st.session_state.kpi_recs:
-            # Recommended Targets
-            recs = st.session_state.kpi_recs['recommended_targets']
-            if recs:
-                st.subheader("💡 Recommended Targets")
-                st.table(pd.DataFrame([{
-                    "Column": r['column'],
-                    "Type": r['type'],
-                    "Task": r['task_suggestion'],
-                    "Confidence": "⭐⭐⭐ High" if r['score'] >= 5 else "⭐⭐ Medium"
-                } for r in recs]))
-            # Recommended KPIs
-            kpi_recs = st.session_state.kpi_recs['recommended_kpis']
-            if kpi_recs:
-                st.subheader("📊 Recommended KPIs")
-                st.table(pd.DataFrame([{
-                    "Column": r['column'],
-                    "Type": r['type'],
-                    "Score": r['score']
-                } for r in kpi_recs]))
-
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.subheader("Configure Pipeline")
 
@@ -325,6 +522,7 @@ else:
                     st.success(f"Clustering: K={n_clusters}, {len(valid_features)} features.")
                     if ignored:
                         st.warning(f"⚠️ Ignored {len(ignored)} completely empty feature(s): {ignored}")
+                    st.session_state.active_tab_name = "Visual Insights"
                     st.rerun()
         else:
             def_idx = 0
@@ -355,8 +553,30 @@ else:
                     st.success(f"Predicting `{target_col}` ({task_type}) with {len(valid_features)} features.")
                     if ignored:
                         st.warning(f"⚠️ Ignored {len(ignored)} completely empty feature(s): {ignored}")
+                    st.session_state.active_tab_name = "Visual Insights"
                     st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
+
+        if st.session_state.kpi_recs:
+            # Recommended Targets
+            recs = st.session_state.kpi_recs['recommended_targets']
+            if recs:
+                st.subheader("💡 Recommended Targets")
+                st.table(pd.DataFrame([{
+                    "Column": r['column'],
+                    "Type": r['type'],
+                    "Task": r['task_suggestion'],
+                    "Confidence": "⭐⭐⭐ High" if r['score'] >= 5 else "⭐⭐ Medium"
+                } for r in recs]))
+            # Recommended KPIs
+            kpi_recs = st.session_state.kpi_recs['recommended_kpis']
+            if kpi_recs:
+                st.subheader("📊 Recommended KPIs")
+                st.table(pd.DataFrame([{
+                    "Column": r['column'],
+                    "Type": r['type'],
+                    "Score": r['score']
+                } for r in kpi_recs]))
 
     # ── TAB 3: Viz ────────────────────────────────────────
     with tab_viz:
@@ -376,10 +596,22 @@ else:
                 num_f = [f for f in st.session_state.feature_cols if f in num_cols_all]
                 if num_f:
                     sf = st.selectbox("Feature", num_f, key="cvf")
-                    fig = px.histogram(st.session_state.df, x=sf, nbins=40,
-                                       title=f"Distribution of {sf}", color_discrete_sequence=["#6366F1"])
-                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"))
-                    st.plotly_chart(fig, use_container_width=True)
+                    if st.session_state.cluster_labels is not None:
+                        df_temp = st.session_state.df.copy()
+                        df_temp['Cluster'] = [f"Cluster {l}" for l in st.session_state.cluster_labels]
+                        fig = px.histogram(df_temp, x=sf, nbins=40, color="Cluster", barmode="overlay",
+                                           title=f"Distribution of {sf} by Cluster",
+                                           color_discrete_sequence=px.colors.qualitative.Safe)
+                        fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"), bargap=0.05)
+                    else:
+                        counts, bins = np.histogram(st.session_state.df[sf].dropna(), bins=40)
+                        bin_centers = 0.5 * (bins[:-1] + bins[1:])
+                        df_bins = pd.DataFrame({sf: bin_centers, 'Count': counts})
+                        fig = px.bar(df_bins, x=sf, y='Count', color=sf,
+                                     color_continuous_scale="Viridis",
+                                     title=f"Distribution of {sf}")
+                        fig.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"), bargap=0.05)
+                    st.plotly_chart(fig, use_container_width=True, theme=None)
                 else:
                     st.info("No numeric features selected.")
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -409,10 +641,16 @@ else:
                 if st.session_state.task_type == "Classification":
                     fig = px.histogram(st.session_state.df, x=tc, color=tc,
                                        color_discrete_sequence=px.colors.qualitative.Plotly)
+                    fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"), bargap=0.05)
                 else:
-                    fig = px.histogram(st.session_state.df, x=tc, nbins=40, color_discrete_sequence=["#8B5CF6"])
-                fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"))
-                st.plotly_chart(fig, use_container_width=True)
+                    counts, bins = np.histogram(st.session_state.df[tc].dropna(), bins=40)
+                    bin_centers = 0.5 * (bins[:-1] + bins[1:])
+                    df_bins = pd.DataFrame({tc: bin_centers, 'Count': counts})
+                    fig = px.bar(df_bins, x=tc, y='Count', color=tc,
+                                 color_continuous_scale="Plasma",
+                                 title=f"Distribution of {tc}")
+                    fig.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"), bargap=0.05)
+                st.plotly_chart(fig, use_container_width=True, theme=None)
                 st.markdown("</div>", unsafe_allow_html=True)
                 if len(num_cols_all) > 1:
                     st.markdown("<div class='card'>", unsafe_allow_html=True)
@@ -428,13 +666,35 @@ else:
                 if nf:
                     sf2 = st.selectbox("Feature", nf, key="svf")
                     if st.session_state.task_type == "Classification":
-                        fig3 = px.box(st.session_state.df, x=tc, y=sf2, color=tc)
+                        col_l, col_r = st.columns(2)
+                        with col_l:
+                            fig3 = px.box(st.session_state.df, x=tc, y=sf2, color=tc,
+                                          color_discrete_sequence=px.colors.qualitative.Plotly)
+                            fig3.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"))
+                            st.plotly_chart(fig3, use_container_width=True, theme=None)
+                        with col_r:
+                            fig_hist = px.histogram(st.session_state.df, x=sf2, color=tc, barmode="overlay", nbins=40,
+                                                    title=f"Distribution of {sf2} by {tc}",
+                                                    color_discrete_sequence=px.colors.qualitative.Plotly)
+                            fig_hist.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"), bargap=0.05)
+                            st.plotly_chart(fig_hist, use_container_width=True, theme=None)
                     else:
-                        fig3 = px.scatter(st.session_state.df, x=sf2, y=tc, opacity=.6,
-                                          trendline="ols" if len(st.session_state.df) < 5000 else None,
-                                          color_discrete_sequence=["#4F46E5"])
-                    fig3.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"))
-                    st.plotly_chart(fig3, use_container_width=True)
+                        col_l, col_r = st.columns(2)
+                        with col_l:
+                            fig3 = px.scatter(st.session_state.df, x=sf2, y=tc, opacity=.6,
+                                              trendline="ols" if len(st.session_state.df) < 5000 else None,
+                                              color_discrete_sequence=["#4F46E5"])
+                            fig3.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"))
+                            st.plotly_chart(fig3, use_container_width=True, theme=None)
+                        with col_r:
+                            counts, bins = np.histogram(st.session_state.df[sf2].dropna(), bins=40)
+                            bin_centers = 0.5 * (bins[:-1] + bins[1:])
+                            df_bins = pd.DataFrame({sf2: bin_centers, 'Count': counts})
+                            fig_hist = px.bar(df_bins, x=sf2, y='Count', color=sf2,
+                                              color_continuous_scale="Viridis",
+                                              title=f"Distribution of {sf2}")
+                            fig_hist.update_layout(coloraxis_showscale=False, paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)", font=dict(color="#1E293B"), bargap=0.05)
+                            st.plotly_chart(fig_hist, use_container_width=True, theme=None)
                 else:
                     st.info("No numeric features for relationship charts.")
                 st.markdown("</div>", unsafe_allow_html=True)
@@ -451,46 +711,57 @@ else:
             st.subheader("🔵 Unsupervised Clustering Pipeline")
             st.markdown(f"Fitting **K-Means** & **Gaussian Mixture Model** with K={st.session_state.n_clusters}.")
             if st.button("🚀 Run Clustering"):
-                with st.spinner("Clustering…"):
-                    try:
-                        cr = train_clustering(
-                            st.session_state.df, st.session_state.feature_cols,
-                            n_clusters=st.session_state.n_clusters)
-                        bcn = max(cr, key=lambda m: cr[m]['metrics'].get("Silhouette Score", -1))
-                        bl  = cr[bcn]['labels']
-                        st.session_state.feature_cols      = cr[bcn]['valid_features']
-                        st.session_state.cluster_results   = cr
-                        st.session_state.best_cluster_name = bcn
-                        st.session_state.cluster_labels    = bl
-                        st.session_state.validation_logs = run_validation_checks(
+                loader_placeholder = st.empty()
+                with loader_placeholder:
+                    st.markdown(
+                        render_fancy_training_loader(
+                            st.session_state.profile, st.session_state.feature_cols,
+                            None, "Clustering"
+                        ),
+                        unsafe_allow_html=True
+                    )
+                try:
+                    cr = train_clustering(
+                        st.session_state.df, st.session_state.feature_cols,
+                        n_clusters=st.session_state.n_clusters)
+                    bcn = max(cr, key=lambda m: cr[m]['metrics'].get("Silhouette Score", -1))
+                    bl  = cr[bcn]['labels']
+                    st.session_state.feature_cols      = cr[bcn]['valid_features']
+                    st.session_state.cluster_results   = cr
+                    st.session_state.best_cluster_name = bcn
+                    st.session_state.cluster_labels    = bl
+                    st.session_state.validation_logs = run_validation_checks(
+                        st.session_state.df, None, st.session_state.feature_cols,
+                        "Clustering", None, None, cr[bcn]['metrics'])
+                    st.session_state.markdown_report = generate_markdown_report(
+                        st.session_state.profile, None, st.session_state.feature_cols,
+                        "Clustering", bcn, cr[bcn]['metrics'],
+                        st.session_state.validation_logs,
+                        st.session_state.business_question, st.session_state.target_audience)
+                    st.session_state.reproducible_code = generate_reproducible_code(
+                        st.session_state.file_name, None, st.session_state.feature_cols,
+                        "Clustering", bcn, n_clusters=st.session_state.n_clusters)
+                    with tempfile.TemporaryDirectory() as td:
+                        sc = create_static_plots(
                             st.session_state.df, None, st.session_state.feature_cols,
-                            "Clustering", None, None, cr[bcn]['metrics'])
-                        st.session_state.markdown_report = generate_markdown_report(
+                            "Clustering", None, None, td, cluster_labels=bl)
+                        pp = os.path.join(td, "report.pdf")
+                        generate_pdf_report(
                             st.session_state.profile, None, st.session_state.feature_cols,
                             "Clustering", bcn, cr[bcn]['metrics'],
                             st.session_state.validation_logs,
-                            st.session_state.business_question, st.session_state.target_audience)
-                        st.session_state.reproducible_code = generate_reproducible_code(
-                            st.session_state.file_name, None, st.session_state.feature_cols,
-                            "Clustering", bcn, n_clusters=st.session_state.n_clusters)
-                        with tempfile.TemporaryDirectory() as td:
-                            sc = create_static_plots(
-                                st.session_state.df, None, st.session_state.feature_cols,
-                                "Clustering", None, None, td, cluster_labels=bl)
-                            pp = os.path.join(td, "report.pdf")
-                            generate_pdf_report(
-                                st.session_state.profile, None, st.session_state.feature_cols,
-                                "Clustering", bcn, cr[bcn]['metrics'],
-                                st.session_state.validation_logs,
-                                st.session_state.business_question, st.session_state.target_audience,
-                                sc, pp)
-                            with open(pp, "rb") as f:
-                                st.session_state.pdf_report = f.read()
-                        st.success("Clustering complete!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-                        import traceback; st.code(traceback.format_exc())
+                            st.session_state.business_question, st.session_state.target_audience,
+                            sc, pp)
+                        with open(pp, "rb") as f:
+                            st.session_state.pdf_report = f.read()
+                    loader_placeholder.empty()
+                    st.success("Clustering complete!")
+                    st.session_state.active_tab_name = "Baseline ML / Clustering"
+                    st.rerun()
+                except Exception as e:
+                    loader_placeholder.empty()
+                    st.error(f"Error: {e}")
+                    import traceback; st.code(traceback.format_exc())
 
             if st.session_state.cluster_results is not None:
                 st.markdown("<div class='card'>", unsafe_allow_html=True)
@@ -520,56 +791,67 @@ else:
             st.subheader("🤖 Baseline Machine Learning Pipeline")
             st.markdown("80/20 split · imputation · scaling · encoding · three models compared.")
             if st.button("🚀 Train & Evaluate Models"):
-                with st.spinner("Training…"):
-                    try:
-                        X_tr, X_te, y_tr, y_te, pre, valid_feats = preprocess_and_split(
-                            st.session_state.df, st.session_state.target_col,
-                            st.session_state.feature_cols, st.session_state.task_type)
-                        st.session_state.feature_cols    = valid_feats
-                        res = train_baselines(X_tr, y_tr, X_te, y_te, pre, st.session_state.task_type)
-                        bn, bi = get_best_model(res, st.session_state.task_type)
-                        st.session_state.ml_results      = res
-                        st.session_state.best_model_name = bn
-                        st.session_state.best_model_info = bi
-                        tp = bi['pipeline'].predict(X_tr)
-                        if st.session_state.task_type == "Classification":
-                            from sklearn.metrics import f1_score as f1e
-                            avg = "binary" if len(np.unique(y_tr)) == 2 else "weighted"
-                            trs = f1e(y_tr, tp, average=avg, zero_division=0)
-                            tes = bi['metrics']['F1-Score']
-                        else:
-                            from sklearn.metrics import r2_score as r2e
-                            trs = r2e(y_tr, tp); tes = bi['metrics']['R²']
-                        st.session_state.validation_logs = run_validation_checks(
+                loader_placeholder = st.empty()
+                with loader_placeholder:
+                    st.markdown(
+                        render_fancy_training_loader(
+                            st.session_state.profile, st.session_state.feature_cols,
+                            st.session_state.target_col, st.session_state.task_type
+                        ),
+                        unsafe_allow_html=True
+                    )
+                try:
+                    X_tr, X_te, y_tr, y_te, pre, valid_feats = preprocess_and_split(
+                        st.session_state.df, st.session_state.target_col,
+                        st.session_state.feature_cols, st.session_state.task_type)
+                    st.session_state.feature_cols    = valid_feats
+                    res = train_baselines(X_tr, y_tr, X_te, y_te, pre, st.session_state.task_type)
+                    bn, bi = get_best_model(res, st.session_state.task_type)
+                    st.session_state.ml_results      = res
+                    st.session_state.best_model_name = bn
+                    st.session_state.best_model_info = bi
+                    tp = bi['pipeline'].predict(X_tr)
+                    if st.session_state.task_type == "Classification":
+                        from sklearn.metrics import f1_score as f1e
+                        avg = "binary" if len(np.unique(y_tr)) == 2 else "weighted"
+                        trs = f1e(y_tr, tp, average=avg, zero_division=0)
+                        tes = bi['metrics']['F1-Score']
+                    else:
+                        from sklearn.metrics import r2_score as r2e
+                        trs = r2e(y_tr, tp); tes = bi['metrics']['R²']
+                    st.session_state.validation_logs = run_validation_checks(
+                        st.session_state.df, st.session_state.target_col,
+                        st.session_state.feature_cols, st.session_state.task_type,
+                        trs, tes, bi['metrics'])
+                    st.session_state.markdown_report = generate_markdown_report(
+                        st.session_state.profile, st.session_state.target_col,
+                        st.session_state.feature_cols, st.session_state.task_type,
+                        bn, bi['metrics'], st.session_state.validation_logs,
+                        st.session_state.business_question, st.session_state.target_audience)
+                    st.session_state.reproducible_code = generate_reproducible_code(
+                        st.session_state.file_name, st.session_state.target_col,
+                        st.session_state.feature_cols, st.session_state.task_type, bn)
+                    with tempfile.TemporaryDirectory() as td:
+                        sc = create_static_plots(
                             st.session_state.df, st.session_state.target_col,
                             st.session_state.feature_cols, st.session_state.task_type,
-                            trs, tes, bi['metrics'])
-                        st.session_state.markdown_report = generate_markdown_report(
+                            y_te, bi['y_pred'], td)
+                        pp = os.path.join(td, "report.pdf")
+                        generate_pdf_report(
                             st.session_state.profile, st.session_state.target_col,
                             st.session_state.feature_cols, st.session_state.task_type,
                             bn, bi['metrics'], st.session_state.validation_logs,
-                            st.session_state.business_question, st.session_state.target_audience)
-                        st.session_state.reproducible_code = generate_reproducible_code(
-                            st.session_state.file_name, st.session_state.target_col,
-                            st.session_state.feature_cols, st.session_state.task_type, bn)
-                        with tempfile.TemporaryDirectory() as td:
-                            sc = create_static_plots(
-                                st.session_state.df, st.session_state.target_col,
-                                st.session_state.feature_cols, st.session_state.task_type,
-                                y_te, bi['y_pred'], td)
-                            pp = os.path.join(td, "report.pdf")
-                            generate_pdf_report(
-                                st.session_state.profile, st.session_state.target_col,
-                                st.session_state.feature_cols, st.session_state.task_type,
-                                bn, bi['metrics'], st.session_state.validation_logs,
-                                st.session_state.business_question, st.session_state.target_audience,
-                                sc, pp)
-                            with open(pp, "rb") as f: st.session_state.pdf_report = f.read()
-                        st.success("Models trained!")
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {e}")
-                        import traceback; st.code(traceback.format_exc())
+                            st.session_state.business_question, st.session_state.target_audience,
+                            sc, pp)
+                        with open(pp, "rb") as f: st.session_state.pdf_report = f.read()
+                    loader_placeholder.empty()
+                    st.success("Models trained!")
+                    st.session_state.active_tab_name = "Baseline ML / Clustering"
+                    st.rerun()
+                except Exception as e:
+                    loader_placeholder.empty()
+                    st.error(f"Error: {e}")
+                    import traceback; st.code(traceback.format_exc())
 
             if st.session_state.ml_results is not None:
                 st.markdown("<div class='card'>", unsafe_allow_html=True)
@@ -593,7 +875,7 @@ else:
                         fig_i.update_layout(yaxis={"categoryorder": "total ascending"},
                                             paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                                             font=dict(color="#1E293B"))
-                        st.plotly_chart(fig_i, use_container_width=True)
+                        st.plotly_chart(fig_i, use_container_width=True, theme=None)
                     else:
                         st.info("Importances not available for this model.")
                     st.markdown("</div>", unsafe_allow_html=True)
