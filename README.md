@@ -1,4 +1,4 @@
-# 🤖 Data2Business Agent
+# 🤖 Data2Business Agent - Business Analytics & ML Assistant
 
 **Transform raw data into trustworthy insights, KPIs, and baseline ML models.**
 
