@@ -4,6 +4,10 @@
 
 Data2Business Agent is an end-to-end, interactive analytics application built with [Streamlit](https://streamlit.io/). It guides users—students, analysts, researchers, and business teams—through a structured workflow: from dataset upload and profiling, through KPI identification and exploratory visualization, to automated machine learning, trust validation, and multi-audience report generation.
 
+## Live Demo
+
+🚀 [Try Data2Business Agent](https://data2business-agent-192027593745.europe-west1.run.app/)
+
 ---
 
 ## 🔄 Workflow
